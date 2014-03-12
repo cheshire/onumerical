@@ -1,5 +1,32 @@
 open Core.Std
 
+module type S = sig
+    type element_t
+    type t = element_t array array
+    type column_idx_t = Column of int
+    type row_idx_t = Row of int
+    val create : height:int -> width:int -> element_t -> t
+    val create_identity: int -> t
+    val (+++) : t -> t -> t
+    val ( *** ) : t -> t -> t
+    val (+++.) : t -> element_t -> t
+    val (///.) : t -> element_t -> t
+    val ( ***.) : t -> element_t -> t
+    val width : t -> int
+    val height : t -> int
+    val column_as_vector : t -> int -> Vector.t
+    val map : t -> (element_t -> element_t) -> t
+    val adjoint_horizontal : t -> t -> t
+    val adjoint_vertical : t -> t -> t
+    val adjoint_horizontal_at_column : t -> int -> t -> t
+    val pivot : t -> row_idx_t -> column_idx_t -> t
+    val to_string : t -> string
+end
+
+module Make
+    (Number : module type of Number) (* Number type parametrization *)
+    : S with type element_t := Number.t = struct
+end
 type element_t = float
 type t = float array array
 

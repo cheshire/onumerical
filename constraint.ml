@@ -1,61 +1,17 @@
 open Core.Std
 
-module type NumberT = sig
-    type t
-    val zero : unit -> t
-    val one : unit -> t
-    val of_int : int -> t
-    val (+/) : t -> t -> t
-    val (-/) : t -> t -> t
-    val ( */) : t -> t -> t
-    val ( //) : t -> t -> t
-    val (~/) : t -> t
-    val to_string : t -> string
-end
-
-module type VarT = sig
-    type t with sexp, compare
-end
-
-module type ExpressionT = sig
-    type t
-    type var_t
-    type number_t
-    val (++) : t -> t -> t
-    val (--) : t -> t -> t
-    val (++.) : t -> number_t -> t
-    val (--.) : t -> number_t -> t
-    val ( **.) : t -> number_t -> t
-    val (//.) : t -> number_t -> t
-    val (~~) : t -> t
-    val of_var : var_t -> t
-    val of_const : number_t -> t
-    val coeff : t -> var_t -> number_t
-    val const : t -> number_t
-end
-
-module type S = sig
-    type t
-    type var_t
-    type number_t
-    module Expression : ExpressionT
-        with type var_t := var_t and type number_t := number_t
-    val (&&.) : t -> t -> t
-    val (<=.) : Expression.t -> Expression.t -> t
-    val (>=.) : Expression.t -> Expression.t -> t
-    val (==.) : Expression.t -> Expression.t -> t
-end
-
 module Make
-    (Var : VarT)
-    (Number : NumberT)
-    : S with type var_t := Var.t and type number_t = Number.t
-    = struct
+    (Var : module type of Var)
+    (Number : module type of Number)
+    =
+struct
 
     type var_t = Var.t
     type number_t = Number.t
 
-    module Expression = struct
+    module Expression : Expression_intf.S
+        with type var_t := var_t and type number_t := number_t = struct
+
         type var_t = Var.t with sexp, compare
 
         (* Used inside the datastructure for differentiating between variables and
@@ -101,21 +57,21 @@ module Make
         let (//.) = _modify_expression_by_constant ~f:Number.(//)
 
         (* Expression negation *)
-        let (~~) expr = expr **. (Number.(~/ (one ())))
+        let (~~) expr = expr **. (Number.(~/ one ))
 
         let of_var (var:var_t) : t = VarMap.singleton
-                (Var var) (Number.one ())
+                (Var var) Number.one
 
         let of_const (const:number_t) : t = VarMap.singleton
                 Constant const
 
         let coeff (expr:t) (var:var_t) : number_t = match (VarMap.find expr (Var var)) with
             | Some c -> c
-            | None -> Number.(zero ())
+            | None -> Number.zero
 
         let const (expr:t) : number_t = match (VarMap.find expr Constant) with
             | Some c -> c
-            | None -> Number.(zero ())
+            | None -> Number.zero
     end
 
     type constraint_type_t = EqualZero | LessThanZero | GreaterThanZero

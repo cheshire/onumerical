@@ -1,0 +1,9 @@
+*.swp
+.*.swp
+Session.vim
+_build
+*.byte
+*.native
+.merlin
+.ropeproject
+doc

@@ -21,23 +21,23 @@ struct
         value:number_t;
         variable_assignment:var_map_t}
 
+    (* Each row has an associated basis variable.
+     * Basis is the mapping row_no -> column_no, where column_no is the
+     * column associated with the corresponding basis variable. *)
+    type basis_t = int array
+    type std_form_in_tableau_t = {
+        tableau: Matrix.t;
+        vars: Var.t list;
+        basis: int array;
+    }
+
     (** Simplex optimization solver. *)
     module SimplexSolver = struct
         open Vector
 
+
         type tableau_t = Matrix.t
-
-        (* Each row has an associated basis variable.
-         * Basis is the mapping row_no -> column_no, where column_no is the
-         * column associated with the corresponding basis variable. *)
-        type basis_t = int array
-
-        type t = {tableau:tableau_t; basis:basis_t}
-        (* so where was i?... right. choosing the best datastructure for the
-         * functional code. what kind of performance penalty do i get by using
-         * map instead of a hashmap? I mean C++ users do use map alll over the
-         * place and don't seem to be especially troubled by it (and they get
-         * order for free! *)
+        type t = std_form_in_tableau_t
 
         (** Change the basis after the pivot. **)
         let change_basis (basis:basis_t) ~row ~column =
@@ -97,7 +97,7 @@ struct
                 pivot tableau (Row pivot_row_idx) (Column pivot_column_idx)
             )
 
-        let dual_simplex ({tableau; basis}:t) =
+        let dual_simplex ({tableau; basis; vars} : t) : t =
 
             (* Constants: column of constants, sans the cost row coefficient. **)
             let cost_row tableau = ((Array.nget tableau (-1)) <|> (0, (-1))) in
@@ -117,7 +117,7 @@ struct
                     | false -> perform_dual_simplex
                         (pivot_step tableau basis cost_row) in
 
-            {tableau=perform_dual_simplex tableau; basis=basis}
+            {tableau=perform_dual_simplex tableau; basis=basis; vars=vars}
     end
 
     type opt_solution_t =
@@ -143,7 +143,7 @@ struct
 
     (* Change the objective to [Minimize] and all constraints to
      * [LessThanZero] *)
-    let to_std_form
+    let of_constraints_and_objective
             (constraints : (InputConstraintType.t * expression_t) list)
             (objective   : objective_t)
             : std_form_problem_t =
@@ -236,11 +236,6 @@ struct
                 ~f:(fun var constr -> (var, constr)));
         }
 
-    type std_form_in_tableau_t = {
-        tableau: Number.t array array;
-        vars: Var.t list;
-        basis: int array;
-    }
 
     (* Convert the sparse representation to the 2D array. *)
     let to_tableau (opt_problem:std_form_problem_t)
@@ -275,34 +270,35 @@ struct
             basis=basis;
         }
 
-    (* TODO: so what exactly is it? Dense report on all variables? *)
-    type var_assignment_t = Number.t list
-
     (* Converts a pivoted tableau to a vector of values for all variables *)
     let tableau_to_var_value 
-            (pivoted_opt_problem:std_form_in_tableau_t) : var_assignment_t =
+            (pivoted_opt_problem:std_form_in_tableau_t) : var_map_t =
 
         let constants_v = SimplexSolver.constants pivoted_opt_problem.tableau in
 
         let basis_idx test_var_idx = Array.find pivoted_opt_problem.basis
             ~f:(fun var_idx -> (var_idx = test_var_idx)) in
 
-        List.mapi pivoted_opt_problem.vars ~f:(fun var_idx _ ->
-            match basis_idx var_idx with
-                (* Variables not in the basis become 0 *)
-                | None -> Number.zero
-                (* Otherwise take the corresponding value from the constants
-                 * row *)
-                | Some idx -> constants_v.(idx)
-        )
+        Map.Poly.of_alist_exn (
+            List.mapi pivoted_opt_problem.vars ~f:(fun var_idx var ->
+                match basis_idx var_idx with
+                    (* Variables not in the basis become 0 *)
+                    | None -> (var, Number.zero)
+                    (* Otherwise take the corresponding value from the constants
+                     * row *)
+                    | Some idx -> (var, constants_v.(idx))
+            ))
 
     (* TODO: stub implementations for missing methods *)
-    type opt_problem_t = std_form_problem_t
-    let solve problem = Unbounded
-    let of_constraints_and_objective constrs objective = {
-        max_objective=Expression.of_const Number.zero;
-        ltz_constraints=[];
-        vars=[];
-    }
+    let solve (opt_problem:std_form_problem_t) : opt_solution_t =
+        let tableau_problem = to_tableau opt_problem in
+        let pivoted_tableau = SimplexSolver.dual_simplex tableau_problem in
+        Solution {
+            variable_assignment = (tableau_to_var_value pivoted_tableau);
 
+            (* TODO: check that the negative indexes work as expected *)
+            value = tableau_problem.tableau.(-1).(-1);
+        }
+
+    (* TODO: integrate with the chemistry parser *)
 end

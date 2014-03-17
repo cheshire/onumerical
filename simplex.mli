@@ -22,7 +22,7 @@ sig
         | Minimize of Expression.t
 
     (** Optimization problem type *)
-    type opt_problem_t
+    type std_form_problem_t
 
     (** Feasible solution description *)
     type feasible_solution_t = {
@@ -43,8 +43,8 @@ sig
      * objective function. *)
     val of_constraints_and_objective :
         (InputConstraintType.t * expression_t) list
-            -> expression_t -> opt_problem_t
+            -> objective_t -> std_form_problem_t
 
     (** Solve an optimization problem *)
-    val solve : opt_problem_t -> opt_solution_t
+    val solve : std_form_problem_t -> opt_solution_t
 end

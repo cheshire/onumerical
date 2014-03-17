@@ -1,232 +1,308 @@
-open Core.Std;;
+open Core.Std
 
-let () = Log.color_on ()
+module Make
+    (Var : module type of VarIntf) (* Variable type parametrization *)
+    (Number : module type of NumberIntf) (* Number type parametrization *)
 
-(** Verbose assert *)
-let vassert condition error = if not condition then failwith error
+    =
+struct
+    module Expression = Expression_f.Make(Var)(Number)
 
-(** Implementation of the dual simplex algorithm *)
-module Dual_Simplex = struct
-    open Vector
+    type expression_t = Expression.t
+    type number_t = Number.t
+    type var_t = Var.t
 
-    type tableau_t = Matrix.t
+    module Matrix = Matrix_f.Make(Number)
+    module Vector = Vector_f.Make(Number)
 
-    (* Constraint row -> variable which is basic for that row *)
-    type basis_t = int array
+    type var_map_t = (var_t, number_t) Map.Poly.t
 
-    type simplex_problem_t = {tableau:tableau_t; basis:basis_t}
+    type feasible_solution_t = {
+        value:number_t;
+        variable_assignment:var_map_t}
 
-    (** Change the basis after the pivot. **)
-    let change_basis (basis:basis_t) ~row ~column =
-        (* TODO: surely this is not the whole version.. I should do something
-         * with the current value of `basis.(row)` as well *)
-        basis.(row) <- column
+    (** Simplex optimization solver. *)
+    module SimplexSolver = struct
+        open Vector
 
-    (* Get the constants column out of the tableau *)
-    let constants (tableau:tableau_t) =
-        (* Number of coefficients in the equations represented in the simplex
-         * tableau. **)
-        let no_coeffs = ((Matrix.width tableau) - 1) in
-        (Matrix.column_as_vector tableau no_coeffs) <|> (0, (-1))
+        type tableau_t = Matrix.t
 
-    (* Perform a single pivot step *)
-    let pivot_step tableau basis cost_row =
-        let constants_v = constants tableau in
-        let cost_row = cost_row tableau in
+        (* Each row has an associated basis variable.
+         * Basis is the mapping row_no -> column_no, where column_no is the
+         * column associated with the corresponding basis variable. *)
+        type basis_t = int array
 
-        (* OK instead of the smallest one how about we choose the first
-         * negative one?.. *)
-        let pivot_row_idx, _ = Array.findi_exn
-            constants_v ~f:(fun _ el -> el < 0.0) in
+        type t = {tableau:tableau_t; basis:basis_t}
+        (* so where was i?... right. choosing the best datastructure for the
+         * functional code. what kind of performance penalty do i get by using
+         * map instead of a hashmap? I mean C++ users do use map alll over the
+         * place and don't seem to be especially troubled by it (and they get
+         * order for free! *)
 
-        (* Pivot row without the last element *)
-        let pivot_row = tableau.(pivot_row_idx) <|> (0, (-1)) in
+        (** Change the basis after the pivot. **)
+        let change_basis (basis:basis_t) ~row ~column =
+            basis.(row) <- column
 
-        (* Smallest ratio of the negative entries in the pivot row with the
-         * corresponding cost row entries. NOTE: Infinity is used as a
-         * guard *)
-        Log.debugf "Pivot row = %s" (to_string pivot_row);
-        Log.debugf "Cost row = %s" (to_string cost_row);
-        let pivot_column_idx, _ = Array.foldi pivot_row
-            ~init:(-1, Float.infinity)
-            ~f:(fun idx current_min coeff ->
-                let (_, smallest_ratio) = current_min in
-                if coeff < 0.0 then (
+        (* Get the constants column out of the tableau *)
+        let constants (tableau:tableau_t) =
+            (* Number of coefficients in the equations represented in the simplex
+             * tableau. **)
+            let no_coeffs = ((Matrix.width tableau) - 1) in
 
-                    (* error: idx out of bounds **)
-                    let ratio = cost_row.(idx) /. coeff in
-                    if ratio < smallest_ratio then (idx, ratio) else
-                        current_min
-                ) else current_min
-            ) in
-        Log.debugf "Pivot row idx = %d; Pivot column idx = %d"
-            pivot_row_idx pivot_column_idx;
-        assert (pivot_row_idx >= 0);
-        assert (pivot_column_idx >= 0);
+            (* TODO: okay this slicing operator sucks. Let's just rewrite it
+             * using functions, it's too confusing otherwise *)
+            (Matrix.column_as_vector tableau no_coeffs) <|> (0, (-1))
 
-        change_basis basis ~row:pivot_row_idx ~column:pivot_column_idx;
+        (* Perform a single pivot step *)
+        let pivot_step tableau basis cost_row =
+            let constants_v = constants tableau in
+            let cost_row = cost_row tableau in
 
-        Matrix.(
-            pivot tableau (Row pivot_row_idx) (Column pivot_column_idx)
-        )
+            (* OK instead of the smallest one how about we choose the first
+             * negative one?.. *)
+            let pivot_row_idx, _ = Array.findi_exn
+                constants_v ~f:(fun _ el -> el < Number.zero) in
 
-    let dual_simplex ({tableau; basis}:simplex_problem_t) =
+            (* Pivot row without the last element *)
+            let pivot_row = tableau.(pivot_row_idx) <|> (0, (-1)) in
 
-        (* Constants: column of constants, sans the cost row coefficient. **)
-        let cost_row tableau = ((Array.nget tableau (-1)) <|> (0, (-1))) in
+            (* Smallest ratio of the negative entries in the pivot row with the
+             * corresponding cost row entries. NOTE: Infinity is used as a
+             * guard *)
+            Log.debugf "Pivot row = %s" (to_string pivot_row);
+            Log.debugf "Cost row = %s" (to_string cost_row);
+            let pivot_column_idx, _ = Array.foldi pivot_row
+                ~init:(-1, Number.infinity)
+                ~f:(fun idx current_min coeff ->
+                    let (_, smallest_ratio) = current_min in
+                    if coeff < Number.zero then (
 
-        let is_primal_feasible tableau = (vmin (constants tableau)) >= 0.0 in
-        let is_dual_feasible tableau = (vmax (cost_row tableau)) <= 0.0 in
-        assert (is_dual_feasible tableau);
+                        (* error: idx out of bounds **)
+                        let ratio = Number.(cost_row.(idx) // coeff) in
 
-        (** Inner tail-recursive function. **)
-        let rec perform_dual_simplex (tableau:tableau_t) : tableau_t =
-            Log.debug (lazy
-                (sprintf "tableau: \n%s" (Matrix.to_string tableau)));
-            match is_primal_feasible tableau with
-                | true -> tableau
-                | false -> perform_dual_simplex
-                    (pivot_step tableau basis cost_row) in
+                        (* TODO: what kind of comparison function is used? I
+                         * probably should look into that a bit more *)
+                        if ratio < smallest_ratio then (idx, ratio) else
+                            current_min
+                    ) else current_min
+                ) in
+            Log.debugf "Pivot row idx = %d; Pivot column idx = %d"
+                pivot_row_idx pivot_column_idx;
+            assert (pivot_row_idx >= 0);
+            assert (pivot_column_idx >= 0);
 
-        {tableau=perform_dual_simplex tableau; basis=basis}
-end
+            change_basis basis ~row:pivot_row_idx ~column:pivot_column_idx;
 
-module type Simplex_Parser_H = sig
-    type opt_problem_t
-    type simplex_with_mapping_t
-    type assignment_t
+            Matrix.(
+                pivot tableau (Row pivot_row_idx) (Column pivot_column_idx)
+            )
 
-    val to_tableau : opt_problem_t -> simplex_with_mapping_t
-    val tableau_to_var_value : simplex_with_mapping_t -> assignment_t
-end
+        let dual_simplex ({tableau; basis}:t) =
 
-(** Parametrization for the generic simplex parser. *)
-module type VarType = sig
-    type t
-end
+            (* Constants: column of constants, sans the cost row coefficient. **)
+            let cost_row tableau = ((Array.nget tableau (-1)) <|> (0, (-1))) in
 
-module GenericSimplex(Parametrization:VarType) : Simplex_Parser_H = struct
-    open Dual_Simplex
+            let is_primal_feasible tableau = (vmin (constants tableau)) >=
+                Number.zero in
+            let is_dual_feasible tableau = (vmax (cost_row tableau)) <=
+                Number.zero in
+            assert (is_dual_feasible tableau);
 
-    type variable_t = Parametrization.t
-    and linear_expression_t = (variable_t, float) Map.Poly.t
-    and constr_t = {expr:linear_expression_t; bound:float}
-    and constraint_system = constr_t list
-    and opt_problem_t = {
-        constraints:constraint_system; objective:linear_expression_t}
-    with sexp
+            (** Inner tail-recursive function. **)
+            let rec perform_dual_simplex (tableau:tableau_t) : tableau_t =
+                Log.debug (lazy
+                    (sprintf "tableau: \n%s" (Matrix.to_string tableau)));
+                match is_primal_feasible tableau with
+                    | true -> tableau
+                    | false -> perform_dual_simplex
+                        (pivot_step tableau basis cost_row) in
 
-    type assignment_t = float list with sexp
+            {tableau=perform_dual_simplex tableau; basis=basis}
+    end
 
-    type simplex_with_mapping_t = {
-        simplex_problem: simplex_problem_t;
+    type opt_solution_t =
+        | Unbounded
+        | Unfeasible
+        | Solution of feasible_solution_t
 
-        (* Mapping column_no -> variable name. *)
-        vars: variable_t list
+    type objective_t =
+        | Maximize of Expression.t
+        | Minimize of Expression.t
+
+    module InputConstraintType = struct
+        type t = LessThanZero | GreaterThanZero | EqualZero
+    end
+
+    (* All constraints converted to [LessThanZero] and
+     * the objective is the [Maximize] problem. *)
+    type std_form_problem_t = {
+        max_objective: Expression.t;
+        ltz_constraints: expression_t list;
+        vars: var_t list;
+    }
+
+    (* Change the objective to [Minimize] and all constraints to
+     * [LessThanZero] *)
+    let to_std_form
+            (constraints : (InputConstraintType.t * expression_t) list)
+            (objective   : objective_t)
+            : std_form_problem_t =
+        let module E = Expression in
+        let module I = InputConstraintType in
+        {
+            max_objective = (
+                match objective with
+                    | Minimize expr -> expr
+                    | Maximize expr -> E.(~~expr));
+            ltz_constraints = List.fold constraints ~init:[] ~f:(
+                fun output_constraints constr ->
+                    output_constraints @ match constr with
+                        | (I.EqualZero, expr) ->
+                                (* e == 0 is converted to
+                                 * [e <= 0; -e <= 0] *)
+                                [expr; E.(~~expr)]
+                        | (I.GreaterThanZero, expr) ->
+                                (* e >= 0 is converted to
+                                 * [-e <= 0] *)
+                                [E.(~~expr)]
+                        | (I.LessThanZero, expr) ->
+                                (* Less-than-zero constraints are left as-is. *)
+                                [expr]
+            );
+            vars = Map.Poly.keys (E.vars_used
+                (List.map constraints ~f:(fun (_, expr) -> expr)
+            ));
+        }
+
+    module DualVar = struct
+        type constraint_idx_t = int with sexp, compare
+        type t = constraint_idx_t with sexp, compare
+
+        (** Creates a var with a given index *)
+        let create_var_with_idx (i:constraint_idx_t) : t = i
+    end
+    module DualExpression = Expression_f.Make(DualVar)(Number)
+
+    type dual_problem_t = {
+
+        (* Minimization problem *)
+        min_objective: DualExpression.t;
+
+        (* Constrained associated with a variable from a primal problem.
+         * Every constraint is greater-than-zero. *)
+        gtz_constraints: (DualExpression.t * Var.t) list;
+
+        (* Each variable is associated with a constraint (in the standard form)
+         * from the primal problem.
+         * Note: all variables are restricted *)
+        vars: (DualVar.t * Expression.t) list
+    }
+
+
+    (* Convert the problem to the dual *)
+    (** TODO: what do I need the dual for?.. *)
+    let to_dual
+            (opt_problem:std_form_problem_t)
+            : dual_problem_t =
+        let vars = List.mapi opt_problem.ltz_constraints
+            ~f:(fun idx _ -> DualVar.create_var_with_idx idx) in
+        {
+            min_objective = (DualExpression.of_assoc_list_and_const
+                (List.map2_exn vars opt_problem.ltz_constraints
+                    ~f:(
+                        fun var ltz_constraint ->
+                            (var, (Expression.const ltz_constraint))
+                    ))
+                Number.zero);
+
+            (* Generate a new constraint from each variable. *)
+            gtz_constraints = (List.map opt_problem.vars
+                ~f:(fun var ->
+
+                    (* List of coefficients for a new constraint *)
+                    let coeff_list = List.map opt_problem.ltz_constraints
+                        ~f:(fun expr -> Expression.coeff expr var) in
+
+                    (* The corresponding bound can be found in the objective
+                     * function *)
+                    let constr = DualExpression.of_assoc_list_and_const
+                        (List.zip_exn vars coeff_list)
+                        Number.(~/ (Expression.coeff
+                            opt_problem.max_objective var)) in
+                    (constr, var)
+                ));
+
+            vars = (List.map2_exn vars opt_problem.ltz_constraints
+                ~f:(fun var constr -> (var, constr)));
+        }
+
+    type std_form_in_tableau_t = {
+        tableau: Number.t array array;
+        vars: Var.t list;
+        basis: int array;
     }
 
     (* Convert the sparse representation to the 2D array. *)
-    let to_tableau (problem:opt_problem_t) : simplex_with_mapping_t =
+    let to_tableau (opt_problem:std_form_problem_t)
+            : std_form_in_tableau_t
+            =
+        let no_variables = List.length opt_problem.vars in
+        let no_constraints = List.length opt_problem.ltz_constraints in
 
-        (* All variables in a list *)
-        (* TODO: this is really quite ugly. *)
-        let all_variables = Map.keys (List.fold
-            problem.constraints
-            ~init:Map.Poly.empty
-            ~f:(fun all_vars {expr; _} ->
-                Map.Poly.merge all_vars expr ~f:(fun ~key _ -> None)
-            )) in
+        let expr_to_dense_list expr = 
+            List.map opt_problem.vars ~f:(
+                fun var -> Expression.coeff expr var) in
 
-        let no_variables = List.length all_variables in
-        let no_constraints = List.length problem.constraints in
+        (* Tableau in the nested list form *)
+        let constraints = List.map opt_problem.ltz_constraints
+            ~f:(fun expr ->
+                (expr_to_dense_list expr) @ [(Expression.const expr)]) in
 
-        let expr_to_row (expr:linear_expression_t) =
-            let row = Array.create ~len:no_variables 0.0 in
-            List.iteri all_variables ~f:(
-                fun idx value -> (
-                    row.(idx) <- match Map.find expr value with
-                        | None -> 0.0
-                        | Some x -> x
-                )
-            );
-            row in
+        (* Adjoint the cost function row *)
+        let tableau = constraints @ [
+            expr_to_dense_list opt_problem.max_objective @ [Number.zero]
+        ]  in
 
-        let constraint_matrix =
-            Array.make_matrix ~dimx:no_variables ~dimy:no_constraints 0.0 in
-
-        (* Populate the tableau *)
-        List.iteri problem.constraints
-            ~f:(fun constr_no {expr; bound} ->
-                let constraint_row = (expr_to_row expr) in
-               constraint_matrix.(constr_no) <-
-                   Array.append constraint_row [| bound |]
-            );
-
-        (* Add the cost function row *)
-        let tableau = Matrix.adjoint_vertical constraint_matrix
-            [| Array.append (expr_to_row problem.objective) [| 0.0 |]  |] in
+        let tableau_matrix = Array.of_list_map tableau ~f:(
+            fun row -> Array.of_list row) in
 
         let basis = Array.init
             no_constraints ~f:(fun row_no -> row_no + no_variables) in
+
         {
-            simplex_problem={tableau; basis;};
-            vars=all_variables
+            tableau=tableau_matrix;
+            vars=opt_problem.vars;
+            basis=basis;
         }
 
+    (* TODO: so what exactly is it? Dense report on all variables? *)
+    type var_assignment_t = Number.t list
+
     (* Converts a pivoted tableau to a vector of values for all variables *)
-    let tableau_to_var_value (
-        {simplex_problem; vars;} : simplex_with_mapping_t) : assignment_t =
+    let tableau_to_var_value 
+            (pivoted_opt_problem:std_form_in_tableau_t) : var_assignment_t =
 
-        let {tableau; basis} = simplex_problem in
+        let constants_v = SimplexSolver.constants pivoted_opt_problem.tableau in
 
-        let constants_v = constants tableau in
-
-        let basis_idx test_var_idx = Array.find basis
+        let basis_idx test_var_idx = Array.find pivoted_opt_problem.basis
             ~f:(fun var_idx -> (var_idx = test_var_idx)) in
 
-        List.mapi vars ~f:(fun var_idx var ->
+        List.mapi pivoted_opt_problem.vars ~f:(fun var_idx _ ->
             match basis_idx var_idx with
                 (* Variables not in the basis become 0 *)
-                | None -> 0.0
+                | None -> Number.zero
                 (* Otherwise take the corresponding value from the constants
                  * row *)
                 | Some idx -> constants_v.(idx)
         )
 
+    (* TODO: stub implementations for missing methods *)
+    type opt_problem_t = std_form_problem_t
+    let solve problem = Unbounded
+    let of_constraints_and_objective constrs objective = {
+        max_objective=Expression.of_const Number.zero;
+        ltz_constraints=[];
+        vars=[];
+    }
+
 end
-
-module StringVarSimplex = GenericSimplex(String)
-
-let main debug_mode () =
-    (* TODO: change this one to parse the input value instead, and output the
-     * coefficients for the variables (or, better yet, the complete equation
-     * with the coefficients attached to the formulas) *)
-    if debug_mode then Log.set_log_level Log.DEBUG else ();
-
-    let tableau = [| 
-        [| -1.0; -1.0; 2.0; 1.0; 0.0; 0.0; -3.0;|];
-        [| -4.0; -2.0; 1.0; 0.0; 1.0; 0.0; -4.0;|];
-        [| 1.0;   1.0; -4.0;0.0; 0.0; 1.0; 2.0 |];
-        [| -4.0; -2.0; -1.0; 0.0; 0.0; 0.0; 0.0; |];
-    |] in
-    (* TODO: check?.. what kind of basis do we expect? *)
-    let basis = [| 4; 5; 6; |] in
-    Dual_Simplex.(
-        let pivoted_tableau = dual_simplex {tableau; basis} in
-        printf "\nOutput:\n%s\n" (Matrix.to_string pivoted_tableau.tableau)
-    )
-
-let command =
-    Command.basic
-        ~summary:"Perform the Dual Simplex Algorithm"
-        ~readme:(fun () -> "Parse and optimize the value")
-
-        (* Local open of the package + adds an anonymous flag *)
-        Command.Spec.(
-            empty
-            +> flag "-d" no_arg ~doc:" Output the debugging information"
-        )
-        (** OMG but how do they do it? **)
-        main
-
-let () = Command.run ~version:"0.1" command

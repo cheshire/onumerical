@@ -4,7 +4,7 @@ open Core.Std
 type t with compare
 
 (** Constructors *)
-val zero : t (* TODO: function or a constant? *)
+val zero : t
 val one : t
 val infinity : t
 val of_int : int -> t

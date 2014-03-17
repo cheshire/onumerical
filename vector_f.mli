@@ -2,7 +2,7 @@
 open Core.Std
 
 module Make
-    (Number : module type of Number) (* Number type parametrization *)
+    (Number : module type of NumberIntf) (* Number type parametrization *)
     :
 sig
 

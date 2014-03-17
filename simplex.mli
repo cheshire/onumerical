@@ -1,40 +1,50 @@
-(** so this must be a bit different, since the set up is functorized now, so
- * we'll have to duplicate everything many times (sigh) *)
-module type S = sig
-    type t
+(** Performs optimization on a constraint system and an objective function *)
 
-    type solution_t
+open Core.Std
 
-    type costant_t
-    type var_t
-    type constraint_t
-
-    (** Create an optimization problem from a constraint system *)
-    val create : constraint_t -> t
-
-    val solve : t -> solution_t
-
-    (** De-constructing the solution *)
-    val value : solution_t -> constant_t
-    val var_value : solution_t -> var_t -> constant_t
-end
-
-module type NumberT = module type of Number
-module type VarT = module type of Var
-
-(* Okay now where do I put the constraint? "Inside" the Simplex module? That
- * would be a bit silly, wouldn't it?.. *)
-(* If I just leave it in the functor, it would be possible to parametrize
- * simplex with a different number than the one the Constraint module is
- * parametrized with =( *)
 module Make
-    (Number : NumberT)
-    (Var : VarT)
- = sig
-    module type Constraint = Constraint.S.Make NumberT VarT
+    (Var : module type of VarIntf) (* Variable type parametrization *)
+    (Number : module type of NumberIntf) (* Number type parametrization *)
+    :
+sig
+    module Expression : module type of Expression_f.Make(Var)(Number)
 
-    include S
-        with type constant_t := NumberT.t
-         and type var_t := VarT.t
-         and type constraint_t := ConstraintT
+    type expression_t = Expression.t
+    type number_t = Number.t
+    type var_t = Var.t
+
+    (** Variable assignment type *)
+    type var_map_t = (var_t, number_t) Map.Poly.t
+
+    (** Objective function definition *)
+    type objective_t =
+        | Maximize of Expression.t
+        | Minimize of Expression.t
+
+    (** Optimization problem type *)
+    type opt_problem_t
+
+    (** Feasible solution description *)
+    type feasible_solution_t = {
+        value:number_t; variable_assignment:var_map_t}
+
+    (** Solution of an optimization problem *)
+    type opt_solution_t =
+        | Unbounded
+        | Unfeasible
+        | Solution of feasible_solution_t
+
+    (** Input constraint type definition *)
+    module InputConstraintType : sig
+        type t = LessThanZero | GreaterThanZero | EqualZero
+    end
+
+    (** Creating an optimization problem from a constraints system and an
+     * objective function. *)
+    val of_constraints_and_objective :
+        (InputConstraintType.t * expression_t) list
+            -> expression_t -> opt_problem_t
+
+    (** Solve an optimization problem *)
+    val solve : opt_problem_t -> opt_solution_t
 end

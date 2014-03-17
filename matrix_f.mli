@@ -1,7 +1,9 @@
+open Core.Std
+
 (** Matrixes from linear algebra, parametrized by a number type. *)
 
 module Make
-    (Number : module type of Number) (* Number type parametrization *)
+    (Number : module type of NumberIntf) (* Number type parametrization *)
     :
 sig
     (** Element stored in the matrix *)
@@ -12,6 +14,8 @@ sig
 
     type column_idx_t = Column of int
     type row_idx_t = Row of int
+
+    module Vector : module type of Vector_f.Make(Number)
 
     (** Create a matrix of the given dimensions *)
     val create : height:int -> width:int -> element_t -> t
@@ -35,6 +39,8 @@ sig
     val height : t -> int
 
     (** Extract the column as vector *)
+    (* TODO: what do we do about a vector? what if we don't want to put
+     * implementation in the same place?.. *)
     val column_as_vector : t -> int -> Vector.t
 
     (** Apply a function to each element *)

@@ -1,9 +1,6 @@
 open Core.Std
 open Re2
 
-Log.color_on ();;
-Log.set_log_level Log.DEBUG
-
 type equation_t = {lhs: formula_t; rhs: formula_t}
 and formula_t = molecule_t list
 and molecule_t = Molecule of (atom_t, coeff_t) Map.Poly.t

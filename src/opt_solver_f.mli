@@ -1,4 +1,4 @@
-(** Performs optimization on a constraint system and an objective function *)
+(** Performs optimization on a constraint system and an objective function. *)
 
 open Core.Std
 

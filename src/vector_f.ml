@@ -4,14 +4,13 @@ module Make
     (Number : module type of NumberIntf) (* Number type parametrization *)
     =
 struct
-    type element_t = Number.t
-    type t = element_t array
+    type t = Number.t array
 
     let create (size:int) (initial:'a) = Array.create ~len:size initial 
 
     let (++) = Array.map2_exn ~f:Number.(+/)
     let (//) = Array.map2_exn ~f:Number.(//)
-    let (--) = Array.map2_exn ~f:Number.( */)
+    let (--) = Array.map2_exn ~f:Number.(-/)
 
     let _scalar_op ~f v scalar = Array.map ~f:(fun el -> f el scalar) v
 
@@ -46,23 +45,17 @@ struct
         sum (Array.map2_exn v1 v2 ~f:Number.( */ ))
 
     (** Helper function for min/max *)
-    let vcmp ~comparator ~init v = Array.fold v ~init:init
-            ~f:(fun extremum element -> (comparator extremum element))
+    let _vcmp_exn ~comparator (v:Number.t array) = 
+        match (Array.fold v ~init:None
+            ~f:(fun (extremum:Number.t option) (element:Number.t) -> (
+                match extremum with
+                    | None -> Some element
+                    | Some extremum_el -> Some (comparator extremum_el element)
+            ))) with
+        | Some x -> x
+        | None -> failwith "Expected non-empty array"
 
-    let vmin = vcmp ~comparator:min ~init:Number.(infinity)
+    let vmin_exn = _vcmp_exn ~comparator:Number.min
+    let vmax_exn = _vcmp_exn ~comparator:Number.max
 
-    let vmax = vcmp ~comparator:max ~init:Number.(~/ infinity)
-
-    (* Helper function for argmin/argmax. *)
-    let vargcmp ~comparator (v:element_t array) =
-        let () = assert (Array.length v > 0) in
-        let ret = Array.foldi v ~init:0
-                ~f:(fun current_pos extremum_pos el ->
-                    if (comparator v.(extremum_pos)  el)
-                    then extremum_pos else current_pos) in
-        assert (ret > 0);
-        ret
-
-    let vargmin = vargcmp ~comparator:(<)
-    let vargmax = vargcmp ~comparator:(>)
 end

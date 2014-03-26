@@ -1,12 +1,9 @@
-open Core.Std
-
 (** Number type: anything comparable which supports basic arithmetic *)
-type t with compare
+type t
 
 (** Constructors *)
 val zero : t
 val one : t
-val infinity : t
 val of_int : int -> t
 
 (** Arithmetics *)
@@ -17,6 +14,16 @@ val ( //) : t -> t -> t
 
 (** Negation *)
 val (~/) : t -> t
+
+(** Comparison *)
+val compare : t -> t -> int
+val (<=/) : t -> t -> bool
+val (>=/) : t -> t -> bool
+val (=/) : t -> t -> bool
+val (</) : t -> t -> bool
+val (>/) : t -> t -> bool
+val max : t -> t -> t
+val min : t -> t -> t
 
 (** Pretty-printing *)
 val to_string : t -> string

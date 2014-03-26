@@ -4,23 +4,22 @@ module Make
     (Number : module type of NumberIntf) (* Number type parametrization *)
     =
 struct
-    type element_t = Number.t
-    type t = element_t array array
+    type t = Number.t array array
 
     type column_idx_t = Column of int
     type row_idx_t = Row of int
 
     module Vector = Vector_f.Make(Number)
 
-    let create ~height ~width (initial:element_t) : t =
+    let create ~height ~width initial : t =
         Array.make_matrix ~dimx:width ~dimy:height initial
 
     let create_identity (size:int) : t = 
         Array.init size ~f:(
             fun idx_row -> Array.init size ~f:(
-                fun idx_column -> 
-                    if idx_row = idx_column
-                        then Number.one
+                fun idx_column ->
+                    if idx_row = idx_column then
+                        Number.one
                     else
                         Number.zero))
 
@@ -43,7 +42,7 @@ struct
         )) m
 
     (* Helper for the operations involving a matrix and a scalar *)
-    let _scalar_operation ~f (m:t) (scalar:element_t) : t =
+    let _scalar_operation ~f (m:t) (scalar:Number.t) : t =
         map m (fun el -> f el scalar)
 
     let ( +++. ) = _scalar_operation ~f:Number.(+/)
@@ -82,21 +81,5 @@ struct
                 m2.(idx);
                 m1.(idx) <|> (column_idx, 0);
             ])
-
-    let pivot (m:t) (Row row) (Column column) : t =
-        let row_vector = m.(row) in
-        Log.debugf "Row vector = %s" (Vector.to_string row_vector);
-        let pivot_element = m.(row).(column) in
-        Vector.(
-            let normalized_row = row_vector //. pivot_element in
-            let substitute row =
-                row -- (normalized_row **. row.(column)) in
-            Array.init (height m) ~f:(fun row_no ->
-                if row_no = row then normalized_row else
-                    let ret = substitute m.(row_no) in
-                    assert (ret.(column) = Number.zero);
-                    ret
-            )
-        );;
 end
 

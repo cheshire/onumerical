@@ -1,6 +1,6 @@
 src/Expression_f
 src/Matrix_f
-src/NumberIntf
+src/Number_intf
 src/Simplex
-src/varIntf
+src/var_intf
 src/Vector_f

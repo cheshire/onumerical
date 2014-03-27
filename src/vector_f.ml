@@ -1,7 +1,7 @@
 open Core.Std
 
 module Make
-    (Number : module type of NumberIntf) (* Number type parametrization *)
+    (Number : module type of Number_intf) (* Number type parametrization *)
     =
 struct
     type t = Number.t array
@@ -18,6 +18,8 @@ struct
     let (++.) = _scalar_op ~f:Number.(+/)
     let ( **. ) = _scalar_op ~f:Number.( */ )
     let (//.) = _scalar_op ~f:Number.(//)
+
+    let (~~) (v:t) = Array.map ~f:(fun el -> Number.(~/ el)) v
 
     let sum v = Array.fold ~init:Number.zero ~f:Number.(+/) v
 

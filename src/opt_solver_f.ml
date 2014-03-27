@@ -1,8 +1,8 @@
 open Core.Std
 
 module Make
-    (Var : module type of VarIntf) (* Variable type parametrization *)
-    (Number : module type of NumberIntf) (* Number type parametrization *)
+    (Var : module type of Var_intf) (* Variable type parametrization *)
+    (Number : module type of Number_intf) (* Number type parametrization *)
 
     =
 struct
@@ -10,16 +10,18 @@ struct
 
     (* Optimization solver engine *)
     module SimplexSolver = Dual_simplex_solver_f.Make(Number)
+    module Vector = Vector_f.Make(Number)
 
-    type expression_t = Expression.t
-    type number_t = Number.t
-    type var_t = Var.t
+    type var_map_t = (Var.t * Number.t) list with sexp
 
-    type var_map_t = (var_t, number_t) Map.Poly.t
+    (** Dual variable assignment: expressions associated with numbers *)
+    type dual_map_t = (Expression.t * Number.t) list with sexp
 
     type feasible_solution_t = {
-        value:number_t;
-        variable_assignment:var_map_t}
+        primal_var_assignment: var_map_t;
+        dual_var_assignment: dual_map_t;
+        value: Number.t;
+    }
 
     type opt_solution_t =
         | Unbounded
@@ -34,18 +36,20 @@ struct
         type t = LessThanZero | GreaterThanZero | EqualZero
     end
 
+    type constraint_t = InputConstraintType.t * Expression.t
+
     (* All constraints converted to [LessThanZero] and
      * the objective is the [Maximize] problem. *)
     type std_form_problem_t = {
         max_objective: Expression.t;
-        ltz_constraints: expression_t list;
-        vars: var_t list;
+        ltz_constraints: Expression.t list;
+        vars: Var.t list;
     }
 
     (* Change the objective to [Minimize] and all constraints to
      * [LessThanZero] *)
     let of_constraints_and_objective
-            (constraints : (InputConstraintType.t * expression_t) list)
+            (constraints : constraint_t list)
             (objective   : objective_t)
             : std_form_problem_t =
         let module E = Expression in
@@ -81,6 +85,7 @@ struct
 
         (** Creates a var with a given index *)
         let create_var_with_idx (i:constraint_idx_t) : t = i
+        let to_string = string_of_int
     end
     module DualExpression = Expression_f.Make(DualVar)(Number)
 
@@ -99,9 +104,8 @@ struct
         vars: (DualVar.t * Expression.t) list
     }
 
-
     (* Convert the problem to the dual *)
-    (** TODO: what do I need the dual for?.. *)
+    (** TODO: is this needed? *)
     let to_dual
             (opt_problem:std_form_problem_t)
             : dual_problem_t =
@@ -170,45 +174,60 @@ struct
             SimplexSolver.basis=basis;
         }
 
-    (* Converts a pivoted tableau to a map of values for all variables. *)
+    (* Converts a pivoted tableau (which has to represent a feasible solution)
+     * to a map of values for all variables. *)
     let tableau_to_var_value
-            ({SimplexSolver.tableau; SimplexSolver.basis}:SimplexSolver.t)
-            (vars : var_t list)
-            : var_map_t =
+            (tableau_solution : SimplexSolver.t)
+            (vars : Var.t list)
+            (lte_constraints : Expression.t list)
+            : feasible_solution_t  =
 
-        let constants_v = SimplexSolver.(constants tableau) in
+        let module S = SimplexSolver in
+        let tableau = S.(tableau_solution.tableau) in
+        let basis = S.(tableau_solution.basis) in
+        let no_constraints = Array.length basis in
+
+        let constants_v = S.constants tableau in
+        let cost_row_v = S.cost_row tableau in
 
         let basis_idx test_var_idx = Array.find basis
             ~f:(fun var_idx -> (var_idx = test_var_idx)) in
 
-        (* TODO: hm can we get by with just an associate list then?... *)
-        Map.Poly.of_alist_exn (
-            List.mapi vars ~f:(fun var_idx var ->
-                match basis_idx var_idx with
-                    (* Variables not in the basis become 0 *)
-                    | None -> (var, Number.zero)
-                    (* Otherwise take the corresponding value from the constants
-                     * row *)
-                    | Some idx -> (var, constants_v.(idx))
-            ))
+        let primal_var_assignment = List.mapi vars ~f:(fun var_idx var ->
+            match basis_idx var_idx with
+
+                (* Variables not in the basis become 0. *)
+                | None -> (var, Number.zero)
+
+                (* Otherwise take the corresponding value from the constants
+                 * row. *)
+                | Some idx -> (var, constants_v.(idx))
+        ) in
+        (* Dual var assignment: negative values of the cost row associated with
+         * the auxiliary variables. *)
+        let dual_row = Vector.(~~ (cost_row_v <|> (no_constraints, 0))) in
+        let dual_var_assignment = 
+            List.map2_exn
+                lte_constraints
+                (Array.to_list dual_row)
+                ~f:(fun expr dual_row -> (expr, dual_row))
+        in
+        {
+            primal_var_assignment=primal_var_assignment;
+            dual_var_assignment=dual_var_assignment;
+            value=S.obj_value tableau;
+        }
 
     let solve (opt_problem:std_form_problem_t) : opt_solution_t =
         let module S = SimplexSolver in
         let tableau_problem = to_tableau opt_problem in
         match S.dual_simplex tableau_problem with
-            | S.Unfeasible, pivoted_tableau -> Unfeasible
+            | S.Unfeasible, _ -> Unfeasible
             | S.Solution, pivoted_tableau ->
-                Solution {
-                    variable_assignment=(tableau_to_var_value
+                Solution
+                    (tableau_to_var_value
                         pivoted_tableau
                         opt_problem.vars
-                    );
-
-                    (* Negative of the bottom right entry in the tableau *)
-                    value=Number.(~/ (Array.nget
-                            (Array.nget S.(tableau_problem.tableau) (-1))
-                        (-1)));
-                }
-
-    (* TODO: integrate with the chemistry parser *)
+                        opt_problem.ltz_constraints
+                    )
 end

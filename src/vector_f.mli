@@ -2,7 +2,7 @@
 open Core.Std
 
 module Make
-    (Number : module type of NumberIntf) (* Number type parametrization *)
+    (Number : module type of Number_intf) (* Number type parametrization *)
     :
 sig
 
@@ -34,6 +34,9 @@ sig
     val (++.) : t -> Number.t -> t
     val ( **. ) : t -> Number.t -> t
     val (//.) : t -> Number.t -> t
+
+    (** Negation *)
+    val (~~) : t -> t
 
     (** Pretty-print the vector to string *)
     val to_string : t -> string

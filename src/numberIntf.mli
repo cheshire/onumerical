@@ -1,5 +1,5 @@
 (** Number type: anything comparable which supports basic arithmetic *)
-type t
+type t with sexp
 
 (** Constructors *)
 val zero : t

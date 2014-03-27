@@ -1,7 +1,7 @@
 open Core.Std
 
 module Make
-    (Number : module type of NumberIntf) (* Number type parametrization *)
+    (Number : module type of Number_intf) (* Number type parametrization *)
     =
 struct
     module Matrix = Matrix_f.Make(Number)
@@ -12,22 +12,30 @@ struct
 
     type tableau_t = Matrix.t
 
-    type t = {
-        tableau: tableau_t;
-        basis: int array;
-    }
-
-    type solution_type_t = Unfeasible | Solution with sexp
-    type solution_t = solution_type_t * t
-
     (* Each row has an associated basis variable.
      * Basis is the mapping row_no -> column_no, where column_no is the
      * column associated with the corresponding basis variable. *)
     type basis_t = int array
 
+    type t = {
+        tableau: tableau_t;
+        basis: basis_t;
+    }
+
+    type solution_type_t = Unfeasible | Solution with sexp
+    type solution_t = solution_type_t * t
+
+    type dual_solution_type_t = Unbounded | DualSolution with sexp
+    type dual_solution_t = (dual_solution_type_t * (
+        tableau_t * basis_t
+    ))
+
     (** Change the basis after the pivot. **)
     let change_basis (basis:basis_t) ~row ~column =
-        basis.(row) <- column
+        (* NOTE: this function *pretends* to be functional, while it is
+         * actually procedural in nature. *)
+        let () = basis.(row) <- column in
+        basis
 
     (* Get the constants column out of the tableau *)
     let constants (tableau:tableau_t) =
@@ -37,6 +45,13 @@ struct
 
         (* <|> is a slicing operator from Core. *)
         (Matrix.column_as_vector tableau no_coeffs) <|> (0, (-1))
+
+    let cost_row (tableau:tableau_t) = 
+        (* Last row without the last column. *)
+        (Array.nget tableau (-1)) <|> (0, -1)
+
+    let obj_value tableau =
+        Array.(nget (nget tableau (-1)) (-1))
 
     (** Perform pivot on the matrix with the given row and column index
      *  Makes all elements in the given column 0 except for the given row.
@@ -67,68 +82,69 @@ struct
         );;
 
     (** Perform a single pivot step *)
-    let pivot_step tableau basis cost_row =
+    let pivot_step tableau basis : dual_solution_t =
         let constants_v = constants tableau in
-        let cost_row = cost_row tableau in
+        let cost_row_v = cost_row tableau in
 
-        let pivot_row_idx, _ = match
-            (* Find the first element which is smaller than zero. *)
-            (Array.findi constants_v ~f:(fun _ el -> Number.(el </ zero)))
-            with
-
-                (* TODO: but i don't want to failwith. I want to... hm say
-                 * that the problem is actually unfeasible?.. *)
-                | None -> failwith "Unbounded"
-                | Some (a, b) -> (a, b) in
+        let pivot_row_idx, _ = (Array.findi_exn
+            constants_v ~f:(fun _ el -> Number.(el </ zero))) in
 
         (* Pivot row without the last element (infix slice) *)
         let pivot_row = tableau.(pivot_row_idx) <|> (0, (-1)) in
 
         let () = Log.debugf "Pivot row = %s" (Vector.to_string pivot_row) in
-        let () = Log.debugf "Cost row = %s" (Vector.to_string cost_row) in
+        let () = Log.debugf "Cost row = %s" (Vector.to_string cost_row_v) in
 
         (* Find the smallest ratio of the negative entries in the
          * pivot row with the
          * corresponding cost row entries. *)
-        let pivot_column_idx, _ = Array.foldi pivot_row
-            ~init:(-1, None)
+        let pivot_column_idx_value = Array.foldi pivot_row
+            ~init:None
             ~f:(
-                fun idx (current_min_idx, current_min) coeff ->
+                fun idx current_min coeff ->
                     let open Number in
                     if coeff </ zero then (
-                        let ratio = cost_row.(idx) // coeff in
+                        let ratio = cost_row_v.(idx) // coeff in
                         match current_min with
-                            | Some min_ratio ->
-                                if ratio </ min_ratio then
-                                    (idx, Some ratio)
+                            | Some (current_min_idx, current_min_ratio) ->
+                                if ratio </ current_min_ratio then
+                                    Some (idx, ratio)
                                 else
-                                    (current_min_idx, current_min)
-                            | None -> (idx, Some ratio)
+                                    Some (current_min_idx, current_min_ratio)
+                            | None -> Some (idx, ratio)
                     ) else
-                        (current_min_idx, current_min)
+                        current_min
             ) in
-        Log.debugf "Pivot row idx = %d; Pivot column idx = %d"
-            pivot_row_idx pivot_column_idx;
 
-        (* TODO: OK and what happens if it's not? We're unfeasible? *)
-        assert (pivot_row_idx >= 0);
-        assert (pivot_column_idx >= 0);
+        match pivot_column_idx_value with
+            (* If no suitable pivot column was found, that means that
+             * the dual is * unbounded, and thus the primal is unfeasible. *)
+            | None -> (Unbounded, (tableau, basis))
+            | Some (pivot_column_idx, _) ->
 
-        change_basis basis ~row:pivot_row_idx ~column:pivot_column_idx;
+                Log.debugf "Pivot row idx = %d; Pivot column idx = %d"
+                    pivot_row_idx pivot_column_idx;
 
-        pivot tableau
-            (Matrix.Row pivot_row_idx) (Matrix.Column pivot_column_idx)
+                assert (pivot_row_idx >= 0);
+                assert (pivot_column_idx >= 0);
+                let basis = change_basis
+                    basis ~row:pivot_row_idx ~column:pivot_column_idx in
+                let tableau = pivot tableau
+                    (Matrix.Row pivot_row_idx)
+                    (Matrix.Column pivot_column_idx) in
+
+                (DualSolution, (tableau, basis))
 
     let dual_simplex ({tableau; basis} : t) : solution_t =
         let open Number in
 
         (* Constants: column of constants, sans the cost row coefficient. **)
-        let cost_row tableau = ((Array.nget tableau (-1)) <|> (0, (-1))) in
+        let cost_row_v tableau = cost_row tableau in
 
         let is_primal_feasible tableau =
             (Vector.vmin_exn (constants tableau)) >=/ zero in
         let is_dual_feasible tableau =
-            (Vector.vmax_exn (cost_row tableau)) <=/ Number.zero in
+            (Vector.vmax_exn (cost_row_v tableau)) <=/ Number.zero in
 
         (** Assert that the tableau is dual-feasible. *)
         if (not (is_dual_feasible tableau)) then failwith
@@ -136,15 +152,23 @@ struct
             which are 0-feasible in the dual representation";
 
         (** Inner tail-recursive function. **)
-        let rec perform_dual_simplex (tableau:tableau_t) : tableau_t =
+        let rec perform_dual_simplex
+                (tableau:tableau_t)
+                (basis:basis_t)
+                : solution_t =
             Log.debug (lazy
                 (sprintf "tableau: \n%s" (Matrix.to_string tableau)));
             match is_primal_feasible tableau with
-                | true -> tableau
-                | false -> perform_dual_simplex
+                | true -> (Solution, {tableau=tableau; basis=basis})
+                | false -> 
+                    let pivotted_tableau = (pivot_step tableau basis) in
+                    match pivotted_tableau with
+                        (* If the dual is unbounded, the primal
+                         * is unfeasible *)
+                        | Unbounded, (tableau, basis) ->
+                            (Unfeasible, {tableau; basis})
+                        | DualSolution, (tableau, basis) ->
+                            (perform_dual_simplex tableau basis) in
 
-                    (* now pivot_step can return "Unfeasible" as well! *)
-                    (pivot_step tableau basis cost_row) in
-
-        (Solution, {tableau=perform_dual_simplex tableau; basis=basis;})
+        perform_dual_simplex tableau basis
 end

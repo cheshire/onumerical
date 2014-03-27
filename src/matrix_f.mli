@@ -3,7 +3,7 @@ open Core.Std
 (** Matrixes from linear algebra, parametrized by a number type. *)
 
 module Make
-    (Number : module type of NumberIntf) (* Number type parametrization *)
+    (Number : module type of Number_intf) (* Number type parametrization *)
     :
 sig
     (** Matrix type *)

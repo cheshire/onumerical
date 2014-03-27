@@ -1,7 +1,7 @@
 open Core.Std
 
 module Make
-    (Number : module type of NumberIntf) (* Number type parametrization *)
+    (Number : module type of Number_intf) (* Number type parametrization *)
     =
 struct
     type t = Number.t array array

@@ -59,19 +59,19 @@ let to_string (equation:t) : string =
 
 (** Type for the equations with coefficients attached *)
 module Coeff_equation = struct
-    type t = {lhs: formula_t; rhs: formula_t}
-    and formula_t = (int * molecule_t) list with sexp
+    type coeff_t = {lhs_c: coeff_formula_t; rhs_c: coeff_formula_t}
+    and coeff_formula_t = (int * molecule_t) list with sexp
 
-    let to_string (equation : t) : string =
-        let formula_to_string (f:formula_t) : string =
+    let to_string (equation : coeff_t) : string =
+        let formula_to_string (f:coeff_formula_t) : string =
             String.concat ~sep:" + "
                 (List.map f ~f:(
                     fun (coeff, molecule) ->
                         coeff_to_string coeff ^ molecule_to_string molecule
                 )) in
         sprintf "%s -> %s"
-            (formula_to_string equation.lhs)
-            (formula_to_string equation.rhs)
+            (formula_to_string equation.lhs_c)
+            (formula_to_string equation.rhs_c)
 end
 
 module Converter = struct
@@ -144,4 +144,53 @@ module Converter = struct
                 (formula_to_expr equation.rhs))
         in
         Opt.of_constraints_and_objective constraints objective
+
+    (** Convert the solution from rationals to integers. *)
+    let vars_to_integers (vars:Opt.var_map_t) =
+        (** Convert a list of rationals to integers, by multiplying every
+         * rational by the LCM of all denominators. *)
+        let to_ints (l : Q.t list) : int list =
+            (* LCM for all denominators *)
+            let lcm = List.fold l ~init:Z.one ~f:(
+                fun lcm n -> Z.lcm lcm Q.(n.den)) in
+            (* Multiply all numbers by the lcm, the denominator should become
+             * one. *)
+            List.map l ~f:(fun n ->
+                (* [i] should be an integer after such a multiplication... *)
+                let i = Q.(n * (~$$ lcm)) in
+                (* ... so we can just convert it to big-integer representation,
+                 * and each number should be small enough to fit inside [int]! *)
+                Z.to_int Q.(Z.div i.num i.den)) in
+
+        let (vars, values) = List.unzip vars in
+        List.zip_exn vars (to_ints values)
+
+    let solution_to_coefficients
+            (equation:t)
+            (solution:Opt.opt_solution_t)
+            : Coeff_equation.coeff_t =
+        let open Opt in
+        match solution with
+            | Solution feasible_solution ->
+                (* List, associates each molecule with a number *)
+                let int_var_assignment = vars_to_integers
+                    feasible_solution.primal_var_assignment in
+                let var_map = Map.Poly.of_alist_exn int_var_assignment in
+                let formula_coeff_adder
+                        (formula:formula_t)
+                        : Coeff_equation.coeff_formula_t =
+                    List.map formula ~f:(fun molecule ->
+                        (Map.Poly.find_exn var_map molecule, molecule)
+                    ) in
+                Coeff_equation.(
+                    {
+                        lhs_c=formula_coeff_adder equation.lhs;
+                        rhs_c=formula_coeff_adder equation.rhs;
+                    }
+                )
+            | _ -> failwith "The problem should be solvable"
+
+    let add_coeffs (equation:t) : Coeff_equation.coeff_t =
+        let opt_problem = to_opt_problem equation in
+        solution_to_coefficients equation (Opt.solve opt_problem)
 end

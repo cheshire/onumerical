@@ -29,6 +29,7 @@ let tests = "opt_solver" >::: [
         let feasible_solution = match solution with
             | Solution f -> f
             | _ -> failwith "The system should be solved" in
+
         assert_equal 8.5 feasible_solution.value
             ~printer: Float_number.to_string
             ~msg: "Checking the solution value";

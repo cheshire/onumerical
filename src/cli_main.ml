@@ -10,7 +10,7 @@ let read_and_print () =
     match of_string input with
         | None -> print_endline ""
         | Some eqn ->
-            print_endline (Coeff_equation.to_string (add_coeffs eqn))
+            print_endline (Coeff_equation.to_string (Converter.add_coeffs eqn))
 
 (** Keep reading the input and converting it *)
 let rec loop () =

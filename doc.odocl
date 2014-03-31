@@ -1,6 +1,8 @@
 src/Expression_f
 src/Matrix_f
 src/Number_intf
-src/Simplex
-src/var_intf
+src/Var_intf
 src/Vector_f
+src/Chem_parser
+src/Dual_simplex_solver_f
+src/Opt_solver_f

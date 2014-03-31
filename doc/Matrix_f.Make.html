@@ -1,0 +1,116 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<link rel="Start" href="index.html">
+<link rel="Up" href="Matrix_f.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Expression_f" rel="Chapter" href="Expression_f.html">
+<link title="Matrix_f" rel="Chapter" href="Matrix_f.html">
+<link title="Number_intf" rel="Chapter" href="Number_intf.html">
+<link title="Var_intf" rel="Chapter" href="Var_intf.html">
+<link title="Vector_f" rel="Chapter" href="Vector_f.html">
+<link title="Chem_parser" rel="Chapter" href="Chem_parser.html">
+<link title="Dual_simplex_solver_f" rel="Chapter" href="Dual_simplex_solver_f.html">
+<link title="Opt_solver_f" rel="Chapter" href="Opt_solver_f.html"><title>Matrix_f.Make</title>
+</head>
+<body>
+<div class="navbar">&nbsp;<a class="up" href="Matrix_f.html" title="Matrix_f">Up</a>
+&nbsp;</div>
+<h1>Functor <a href="type_Matrix_f.Make.html">Matrix_f.Make</a></h1>
+
+<pre><span class="keyword">module</span> Make: <div class="sig_block"><code class="code">functor (</code><code class="code">Number</code><code class="code"> : </code><code class="type">module type of Number_intf</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Matrix_f.Make.html">..</a> <code class="code">end</code></div></pre><table border="0" cellpadding="3" width="100%">
+<tr>
+<td align="left" valign="top" width="1%%"><b>Parameters: </b></td>
+<td>
+<table class="paramstable">
+<tr>
+<td align="center" valign="top" width="15%">
+<code>Number</code></td>
+<td align="center" valign="top">:</td>
+<td><code class="type">module type of Number_intf</code>
+</table>
+</td>
+</tr>
+</table>
+<hr width="100%">
+
+<pre><span id="TYPEt"><span class="keyword">type</span> <code class="type"></code>t</span> = <code class="type">Number.t array array</code> </pre>
+<div class="info ">
+Matrix type<br>
+</div>
+
+
+<pre><code><span id="TYPEcolumn_idx_t"><span class="keyword">type</span> <code class="type"></code>column_idx_t</span> = </code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTcolumn_idx_t.Column"><span class="constructor">Column</span></span> <span class="keyword">of</span> <code class="type">int</code></code></td>
+
+</tr></table>
+
+
+
+<pre><code><span id="TYPErow_idx_t"><span class="keyword">type</span> <code class="type"></code>row_idx_t</span> = </code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTrow_idx_t.Row"><span class="constructor">Row</span></span> <span class="keyword">of</span> <code class="type">int</code></code></td>
+
+</tr></table>
+
+
+
+<pre><span class="keyword">module</span> <a href="Matrix_f.Make.Vector.html">Vector</a>: <code class="type">module type of <a href="Vector_f.Make.html">Vector_f.Make</a>(Number)</code></pre>
+<pre><span id="VALcreate"><span class="keyword">val</span> create</span> : <code class="type">height:int -> width:int -> Number.t -> <a href="Matrix_f.Make.html#TYPEt">t</a></code></pre><div class="info ">
+Create a matrix of the given dimensions<br>
+</div>
+
+<pre><span id="VALcreate_identity"><span class="keyword">val</span> create_identity</span> : <code class="type">int -> <a href="Matrix_f.Make.html#TYPEt">t</a></code></pre><div class="info ">
+Create an identity matrix of a given size<br>
+</div>
+
+<pre><span id="VAL(+++)"><span class="keyword">val</span> (+++)</span> : <code class="type"><a href="Matrix_f.Make.html#TYPEt">t</a> -> <a href="Matrix_f.Make.html#TYPEt">t</a> -> <a href="Matrix_f.Make.html#TYPEt">t</a></code></pre><div class="info ">
+Add two matrices<br>
+</div>
+
+<pre><span id="VAL( *** )"><span class="keyword">val</span> ( *** )</span> : <code class="type"><a href="Matrix_f.Make.html#TYPEt">t</a> -> <a href="Matrix_f.Make.html#TYPEt">t</a> -> <a href="Matrix_f.Make.html#TYPEt">t</a></code></pre><div class="info ">
+Multiply two matrices<br>
+</div>
+
+<pre><span id="VAL(+++.)"><span class="keyword">val</span> (+++.)</span> : <code class="type"><a href="Matrix_f.Make.html#TYPEt">t</a> -> Number.t -> <a href="Matrix_f.Make.html#TYPEt">t</a></code></pre><div class="info ">
+Operations on a matrix and a scalar<br>
+</div>
+
+<pre><span id="VAL(///.)"><span class="keyword">val</span> (///.)</span> : <code class="type"><a href="Matrix_f.Make.html#TYPEt">t</a> -> Number.t -> <a href="Matrix_f.Make.html#TYPEt">t</a></code></pre>
+<pre><span id="VAL( ***. )"><span class="keyword">val</span> ( ***. )</span> : <code class="type"><a href="Matrix_f.Make.html#TYPEt">t</a> -> Number.t -> <a href="Matrix_f.Make.html#TYPEt">t</a></code></pre>
+<pre><span id="VALwidth"><span class="keyword">val</span> width</span> : <code class="type"><a href="Matrix_f.Make.html#TYPEt">t</a> -> int</code></pre><div class="info ">
+Get matrix dimensions<br>
+</div>
+
+<pre><span id="VALheight"><span class="keyword">val</span> height</span> : <code class="type"><a href="Matrix_f.Make.html#TYPEt">t</a> -> int</code></pre>
+<pre><span id="VALcolumn_as_vector"><span class="keyword">val</span> column_as_vector</span> : <code class="type"><a href="Matrix_f.Make.html#TYPEt">t</a> -> int -> Vector.t</code></pre><div class="info ">
+Extract the column as vector<br>
+</div>
+
+<pre><span id="VALmap"><span class="keyword">val</span> map</span> : <code class="type"><a href="Matrix_f.Make.html#TYPEt">t</a> -> (Number.t -> Number.t) -> <a href="Matrix_f.Make.html#TYPEt">t</a></code></pre><div class="info ">
+Apply a function to each element<br>
+</div>
+
+<pre><span id="VALadjoint_horizontal"><span class="keyword">val</span> adjoint_horizontal</span> : <code class="type"><a href="Matrix_f.Make.html#TYPEt">t</a> -> <a href="Matrix_f.Make.html#TYPEt">t</a> -> <a href="Matrix_f.Make.html#TYPEt">t</a></code></pre><div class="info ">
+Adjoint a second matrix horizontally on the right<br>
+</div>
+
+<pre><span id="VALadjoint_vertical"><span class="keyword">val</span> adjoint_vertical</span> : <code class="type"><a href="Matrix_f.Make.html#TYPEt">t</a> -> <a href="Matrix_f.Make.html#TYPEt">t</a> -> <a href="Matrix_f.Make.html#TYPEt">t</a></code></pre><div class="info ">
+Adjoint a second matrix vertically below<br>
+</div>
+
+<pre><span id="VALto_string"><span class="keyword">val</span> to_string</span> : <code class="type"><a href="Matrix_f.Make.html#TYPEt">t</a> -> string</code></pre><div class="info ">
+Pretty-print the matrix to string<br>
+</div>
+</body></html>

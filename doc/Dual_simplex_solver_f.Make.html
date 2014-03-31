@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<link rel="Start" href="index.html">
+<link rel="Up" href="Dual_simplex_solver_f.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Expression_f" rel="Chapter" href="Expression_f.html">
+<link title="Matrix_f" rel="Chapter" href="Matrix_f.html">
+<link title="Number_intf" rel="Chapter" href="Number_intf.html">
+<link title="Var_intf" rel="Chapter" href="Var_intf.html">
+<link title="Vector_f" rel="Chapter" href="Vector_f.html">
+<link title="Chem_parser" rel="Chapter" href="Chem_parser.html">
+<link title="Dual_simplex_solver_f" rel="Chapter" href="Dual_simplex_solver_f.html">
+<link title="Opt_solver_f" rel="Chapter" href="Opt_solver_f.html"><title>Dual_simplex_solver_f.Make</title>
+</head>
+<body>
+<div class="navbar">&nbsp;<a class="up" href="Dual_simplex_solver_f.html" title="Dual_simplex_solver_f">Up</a>
+&nbsp;</div>
+<h1>Functor <a href="type_Dual_simplex_solver_f.Make.html">Dual_simplex_solver_f.Make</a></h1>
+
+<pre><span class="keyword">module</span> Make: <div class="sig_block"><code class="code">functor (</code><code class="code">Number</code><code class="code"> : </code><code class="type">module type of Number_intf</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Dual_simplex_solver_f.Make.html">..</a> <code class="code">end</code></div></pre><table border="0" cellpadding="3" width="100%">
+<tr>
+<td align="left" valign="top" width="1%%"><b>Parameters: </b></td>
+<td>
+<table class="paramstable">
+<tr>
+<td align="center" valign="top" width="15%">
+<code>Number</code></td>
+<td align="center" valign="top">:</td>
+<td><code class="type">module type of Number_intf</code>
+</table>
+</td>
+</tr>
+</table>
+<hr width="100%">
+
+<pre><span class="keyword">module</span> <a href="Dual_simplex_solver_f.Make.Matrix.html">Matrix</a>: <code class="type">module type of <a href="Matrix_f.Make.html">Matrix_f.Make</a>(Number)</code></pre>
+<pre><span class="keyword">module</span> <a href="Dual_simplex_solver_f.Make.Vector.html">Vector</a>: <code class="type">module type of <a href="Vector_f.Make.html">Vector_f.Make</a>(Number)</code></pre>
+<pre><span id="TYPEtableau_t"><span class="keyword">type</span> <code class="type"></code>tableau_t</span> = <code class="type">Matrix.t</code> </pre>
+
+
+<pre><span id="TYPEbasis_t"><span class="keyword">type</span> <code class="type"></code>basis_t</span> = <code class="type">int array</code> </pre>
+<div class="info ">
+Each row has an associated basis variable.
+     *  Basis is the mapping row_no -&gt; column_no, where column_no is the
+     *  column associated with the corresponding basis variable.
+     *  The mapping is implicitly defined by the input variable being the array
+     *  index.<br>
+</div>
+
+
+<pre><code><span id="TYPEt"><span class="keyword">type</span> <code class="type"></code>t</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTt.tableau">tableau</span>&nbsp;: <code class="type"><a href="Dual_simplex_solver_f.Make.html#TYPEtableau_t">tableau_t</a></code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTt.basis">basis</span>&nbsp;: <code class="type"><a href="Dual_simplex_solver_f.Make.html#TYPEbasis_t">basis_t</a></code>;</code></td>
+
+</tr></table>
+}
+
+
+
+<pre><code><span id="TYPEsolution_type_t"><span class="keyword">type</span> <code class="type"></code>solution_type_t</span> = </code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTsolution_type_t.Unfeasible"><span class="constructor">Unfeasible</span></span></code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTsolution_type_t.Solution"><span class="constructor">Solution</span></span></code></td>
+
+</tr></table>
+
+<div class="info ">
+Solution type.
+     *  We never get "unbounded", as in that case the dual will be
+     *  unfeasible, and we won't get a chance to run the dual simplex algorithm
+     *  in the first place.<br>
+</div>
+
+
+<pre><span id="TYPEsolution_t"><span class="keyword">type</span> <code class="type"></code>solution_t</span> = <code class="type"><a href="Dual_simplex_solver_f.Make.html#TYPEsolution_type_t">solution_type_t</a> * <a href="Dual_simplex_solver_f.Make.html#TYPEt">t</a></code> </pre>
+
+
+<pre><span id="VALconstants"><span class="keyword">val</span> constants</span> : <code class="type"><a href="Dual_simplex_solver_f.Make.html#TYPEtableau_t">tableau_t</a> -> Number.t array</code></pre><div class="info ">
+Get the constants column out of the tableau<br>
+</div>
+
+<pre><span id="VALcost_row"><span class="keyword">val</span> cost_row</span> : <code class="type"><a href="Dual_simplex_solver_f.Make.html#TYPEtableau_t">tableau_t</a> -> Number.t array</code></pre><div class="info ">
+Get the objective row<br>
+</div>
+
+<pre><span id="VALobj_value"><span class="keyword">val</span> obj_value</span> : <code class="type"><a href="Dual_simplex_solver_f.Make.html#TYPEtableau_t">tableau_t</a> -> Number.t</code></pre><div class="info ">
+Get the objective value.
+     *  NOTE: it will not be the optimal value if tableau wasn't pivoted.<br>
+</div>
+
+<pre><span id="VALdual_simplex"><span class="keyword">val</span> dual_simplex</span> : <code class="type"><a href="Dual_simplex_solver_f.Make.html#TYPEt">t</a> -> <a href="Dual_simplex_solver_f.Make.html#TYPEsolution_t">solution_t</a></code></pre><div class="info ">
+Perform dual simplex pivoting on the tableau
+     *  Precondition: dual is origin-feasible &lt;=&gt; all cost-row entries
+     *  are negative.
+     *  NOTE: if the pre-condition wasn't fullfilled, the function will crash
+     *  with an assertion error.<br>
+</div>
+
+<pre><span id="VALsolution_type_t_of_sexp"><span class="keyword">val</span> solution_type_t_of_sexp</span> : <code class="type">Sexplib.Sexp.t -> <a href="Dual_simplex_solver_f.Make.html#TYPEsolution_type_t">solution_type_t</a></code></pre>
+<pre><span id="VALsexp_of_solution_type_t"><span class="keyword">val</span> sexp_of_solution_type_t</span> : <code class="type"><a href="Dual_simplex_solver_f.Make.html#TYPEsolution_type_t">solution_type_t</a> -> Sexplib.Sexp.t</code></pre><br>
+Get the constants column out of the tableau<br>
+<br>
+Get the objective row<br>
+<br>
+Get the objective value.
+     *  NOTE: it will not be the optimal value if tableau wasn't pivoted.<br>
+<br>
+Perform dual simplex pivoting on the tableau
+     *  Precondition: dual is origin-feasible &lt;=&gt; all cost-row entries
+     *  are negative.
+     *  NOTE: if the pre-condition wasn't fullfilled, the function will crash
+     *  with an assertion error.<br>
+</body></html>

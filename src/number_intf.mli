@@ -12,6 +12,8 @@ val (-/) : t -> t -> t
 val ( */) : t -> t -> t
 val ( //) : t -> t -> t
 
+val abs : t -> t
+
 (** Negation *)
 val (~/) : t -> t
 
@@ -27,6 +29,3 @@ val min : t -> t -> t
 
 (** Pretty-printing *)
 val to_string : t -> string
-
-(** Pretty-printing to a string of set width (extra spaces go to the left). *)
-val to_string_with_padding : t -> no_chars:int -> string

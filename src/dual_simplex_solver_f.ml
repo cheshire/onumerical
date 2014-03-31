@@ -51,7 +51,7 @@ struct
         (Array.nget tableau (-1)) <|> (0, -1)
 
     let obj_value tableau =
-        Array.(nget (nget tableau (-1)) (-1))
+        Number.(~/ Array.(nget (nget tableau (-1)) (-1)))
 
     (** Perform pivot on the matrix with the given row and column index
      *  Makes all elements in the given column 0 except for the given row.
@@ -96,8 +96,9 @@ struct
         let () = Log.debugf "Cost row = %s" (Vector.to_string cost_row_v) in
 
         (* Find the smallest ratio of the negative entries in the
-         * pivot row with the
-         * corresponding cost row entries. *)
+         * pivot row with the corresponding cost row entries.
+         * The value will stay [None] iff there are no negative entries in the
+         * pivot row. *)
         let pivot_column_idx_value = Array.foldi pivot_row
             ~init:None
             ~f:(
@@ -118,7 +119,7 @@ struct
 
         match pivot_column_idx_value with
             (* If no suitable pivot column was found, that means that
-             * the dual is * unbounded, and thus the primal is unfeasible. *)
+             * the dual is _unbounded_, and thus the primal is unfeasible. *)
             | None -> (Unbounded, (tableau, basis))
             | Some (pivot_column_idx, _) ->
 
@@ -160,7 +161,7 @@ struct
                 (sprintf "tableau: \n%s" (Matrix.to_string tableau)));
             match is_primal_feasible tableau with
                 | true -> (Solution, {tableau=tableau; basis=basis})
-                | false -> 
+                | false ->
                     let pivotted_tableau = (pivot_step tableau basis) in
                     match pivotted_tableau with
                         (* If the dual is unbounded, the primal

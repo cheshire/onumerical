@@ -49,9 +49,6 @@ sig
     (** Adjoint a second matrix vertically below *)
     val adjoint_vertical : t -> t -> t
 
-    (** Adjoint second matrix horizontally after the given column *)
-    val adjoint_horizontal_at_column : t -> int -> t -> t
-
     (** Pretty-print the matrix to string *)
     val to_string : t -> string
 end

@@ -12,18 +12,20 @@ struct
         constant: Number.t
     } with sexp
 
-    let _merge_expressions (expr1:t) (expr2:t) ~f : t =
+    let _merge_expressions (expr1:t) (expr2:t) ~f ~f2 : t =
         {coeffs=Map.Poly.merge expr1.coeffs expr2.coeffs ~f:(
             fun ~key:_ value ->
                     match value with
                         | `Left a -> Some a
-                        | `Right b -> Some b
-                        | `Both (a, b) -> Some (f a b)
+                        | `Right b -> Some (f2 b)
+                        | `Both (a, b) ->
+                            let coeff = (f a b) in
+                            if coeff = Number.zero then None else Some coeff
             );
         constant=f expr1.constant expr2.constant}
 
-    let (++) = _merge_expressions ~f:Number.(+/)
-    let (--) = _merge_expressions ~f:Number.(-/)
+    let (++) = _merge_expressions ~f:Number.(+/) ~f2:Fn.id
+    let (--) = _merge_expressions ~f:Number.(-/) ~f2:Number.(~/)
 
     (* Helper function: modify the constant value in the expression using the
      * function *)
@@ -53,9 +55,14 @@ struct
          constant=const}
 
     let of_assoc_list_and_const assoc_list const =
-        (* TODO: ignore the variables associated with the coefficient of zero *)
-        {coeffs=Map.Poly.of_alist_exn assoc_list;
-         constant=const}
+        (* Ignore the variables associated with the coefficient of zero. *)
+        let alist = List.filter assoc_list ~f:(
+            fun (_, coeff) -> 
+                if coeff = Number.zero then
+                    false
+                else
+                    true) in
+        {coeffs=Map.Poly.of_alist_exn alist; constant=const}
 
     let coeff (expr:t) (var:Var.t) : Number.t =
         match (Map.Poly.find expr.coeffs var) with
@@ -77,13 +84,15 @@ struct
                     fun ~key:_ _ -> Some Number.one))
 
     let to_string {coeffs; constant} =
-        let coeff_string = Map.Poly.fold coeffs ~init:"" ~f:(
+        let coeffs = Map.Poly.fold coeffs ~init:[] ~f:(
             fun ~key:var ~data:coeff accum ->
-                accum ^ (
-                    sprintf "%s (%s) + "
+                (
+                    sprintf "%s (%s)"
                         (Number.to_string coeff)
                         (Var.to_string var)
-                )
+                ) :: accum
         ) in
-        sprintf "%s + %s" coeff_string (Number.to_string constant)
+        sprintf "%s + %s"
+            (String.concat ~sep:" + " coeffs)
+            (Number.to_string constant)
 end

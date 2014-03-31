@@ -1,5 +1,8 @@
 open Core.Std
 
+(** Magic number: padding for pretty-printing *)
+let number_padding = 5
+
 module Make
     (Number : module type of Number_intf) (* Number type parametrization *)
     =
@@ -23,24 +26,30 @@ struct
 
     let sum v = Array.fold ~init:Number.zero ~f:Number.(+/) v
 
+    (** Alignment is a bit tricky. We want numbers in a table aligned
+     * vertically, with minus signs (if needed) on the left. *)
+    let _number_to_string_with_padding n ~no_chars =
+        let abs = Number.abs n in
+        let s = Number.to_string abs in
+        let len = String.length s in
+        let prefix =
+            if Number.(n </ zero) then
+                "-"
+            else
+                " " in
+        (* 1 for prefix *)
+        let postfix_len = max 0 (no_chars - len - 1) in
+        let postfix = String.make postfix_len ' ' in
+        prefix ^ s ^ postfix
+
     let to_string v =
-        sprintf "|%s|" (
+        let len = Array.length v in
+        "|" ^ (
             String.concat_array
-                ~sep:"\t"
-                (Array.map ~f:(fun e ->
-                    (*
-                     (* OCaml displays negative zero as -0.0 by default =( *)
-                     let norm = if e = 0.0 then 0.0 else e in
-
-                     (* Padding space to leave the space for the
-                      * nice alignment with negative numbers *)
-                     let separator = if (e >= 0.0) then " " else "" in
-                     sprintf "%s%.3f" separator norm
-                     *)
-
-                     sprintf "%s" (Number.to_string_with_padding e ~no_chars:5)
-                 ) v)
-        )
+                (Array.mapi v ~f:(fun idx e ->
+                    let padding = if idx = len - 1 then 0 else number_padding in
+                    _number_to_string_with_padding e ~no_chars:padding))
+        ) ^ "|"
 
     let dot v1 v2 =
         let () = assert (Array.length v1 = Array.length v2) in

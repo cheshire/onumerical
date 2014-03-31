@@ -24,28 +24,29 @@ sig
 
 
     (** Optimization problem type *)
-    type std_form_problem_t
+    type std_form_problem_t with sexp
 
     (** If a problem is solved, both primal and dual solutions are returned. *)
     type feasible_solution_t = {
         primal_var_assignment: var_map_t;
         dual_var_assignment: dual_map_t;
         value: Number.t;
-    }
+    } with sexp
 
     (** Solution of an optimization problem *)
     type opt_solution_t =
         | Unbounded
         | Unfeasible
-        | Solution of feasible_solution_t
+        | Solution of feasible_solution_t with sexp
 
     (** Input constraint type definition *)
     module InputConstraintType : sig
-        type t = LessThanZero | GreaterThanZero | EqualZero
+        type t = LessThanZero | GreaterThanZero | EqualZero with sexp
     end
 
     (** Input constraint type *)
-    type constraint_t = InputConstraintType.t * Expression.t
+    type constraint_t = InputConstraintType.t * Expression.t with sexp
+    type input_constraints_t = constraint_t list with sexp
 
     (** Creating an optimization problem from a constraints system and an
      * objective function. *)

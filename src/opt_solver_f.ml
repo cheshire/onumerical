@@ -11,6 +11,7 @@ struct
     (* Optimization solver engine *)
     module SimplexSolver = Dual_simplex_solver_f.Make(Number)
     module Vector = Vector_f.Make(Number)
+    module Matrix = Matrix_f.Make(Number)
 
     type var_map_t = (Var.t * Number.t) list with sexp
 
@@ -21,22 +22,23 @@ struct
         primal_var_assignment: var_map_t;
         dual_var_assignment: dual_map_t;
         value: Number.t;
-    }
+    } with sexp
 
     type opt_solution_t =
         | Unbounded
         | Unfeasible
-        | Solution of feasible_solution_t
+        | Solution of feasible_solution_t with sexp
 
     type objective_t =
         | Maximize of Expression.t
         | Minimize of Expression.t
 
     module InputConstraintType = struct
-        type t = LessThanZero | GreaterThanZero | EqualZero
+        type t = LessThanZero | GreaterThanZero | EqualZero with sexp
     end
 
-    type constraint_t = InputConstraintType.t * Expression.t
+    type constraint_t = InputConstraintType.t * Expression.t with sexp
+    type input_constraints_t = constraint_t list with sexp
 
     (* All constraints converted to [LessThanZero] and
      * the objective is the [Maximize] problem. *)
@@ -44,7 +46,7 @@ struct
         max_objective: Expression.t;
         ltz_constraints: Expression.t list;
         vars: Var.t list;
-    }
+    } with sexp
 
     (* Change the objective to [Minimize] and all constraints to
      * [LessThanZero] *)
@@ -57,8 +59,9 @@ struct
         {
             max_objective = (
                 match objective with
-                    | Minimize expr -> expr
-                    | Maximize expr -> E.(~~expr));
+                    | Minimize expr -> E.(~~expr)
+                    | Maximize expr -> expr
+            );
             ltz_constraints = List.fold constraints ~init:[] ~f:(
                 fun output_constraints constr ->
                     output_constraints @ match constr with
@@ -79,69 +82,6 @@ struct
             ));
         }
 
-    module DualVar = struct
-        type constraint_idx_t = int with sexp, compare
-        type t = constraint_idx_t with sexp, compare
-
-        (** Creates a var with a given index *)
-        let create_var_with_idx (i:constraint_idx_t) : t = i
-        let to_string = string_of_int
-    end
-    module DualExpression = Expression_f.Make(DualVar)(Number)
-
-    type dual_problem_t = {
-
-        (* Minimization problem *)
-        min_objective: DualExpression.t;
-
-        (* Constrained associated with a variable from a primal problem.
-         * Every constraint is greater-than-zero. *)
-        gtz_constraints: (DualExpression.t * Var.t) list;
-
-        (* Each variable is associated with a constraint (in the standard form)
-         * from the primal problem.
-         * Note: all variables are restricted *)
-        vars: (DualVar.t * Expression.t) list
-    }
-
-    (* Convert the problem to the dual *)
-    (** TODO: is this needed? *)
-    let to_dual
-            (opt_problem:std_form_problem_t)
-            : dual_problem_t =
-        let vars = List.mapi opt_problem.ltz_constraints
-            ~f:(fun idx _ -> DualVar.create_var_with_idx idx) in
-        {
-            min_objective = (DualExpression.of_assoc_list_and_const
-                (List.map2_exn vars opt_problem.ltz_constraints
-                    ~f:(
-                        fun var ltz_constraint ->
-                            (var, (Expression.const ltz_constraint))
-                    ))
-                Number.zero);
-
-            (* Generate a new constraint from each variable. *)
-            gtz_constraints = (List.map opt_problem.vars
-                ~f:(fun var ->
-
-                    (* List of coefficients for a new constraint *)
-                    let coeff_list = List.map opt_problem.ltz_constraints
-                        ~f:(fun expr -> Expression.coeff expr var) in
-
-                    (* The corresponding bound can be found in the objective
-                     * function *)
-                    let constr = DualExpression.of_assoc_list_and_const
-                        (List.zip_exn vars coeff_list)
-                        Number.(~/ (Expression.coeff
-                            opt_problem.max_objective var)) in
-                    (constr, var)
-                ));
-
-            vars = (List.map2_exn vars opt_problem.ltz_constraints
-                ~f:(fun var constr -> (var, constr)));
-        }
-
-
     (* Convert the sparse representation to the 2D array. *)
     let to_tableau (opt_problem:std_form_problem_t)
             : SimplexSolver.t
@@ -154,17 +94,36 @@ struct
                 fun var -> Expression.coeff expr var) in
 
         (* Tableau in the nested list form *)
-        let constraints = List.map opt_problem.ltz_constraints
-            ~f:(fun expr ->
-                (expr_to_dense_list expr) @ [(Expression.const expr)]) in
+        let constraints = List.mapi opt_problem.ltz_constraints
+            ~f:(fun idx expr ->
+                (expr_to_dense_list expr)
+
+                (* And the corresponding row of the identity matrix *)
+                @ (List.init no_constraints ~f:(fun ident_idx ->
+                    if ident_idx = idx then
+                        Number.one
+                    else
+                        Number.zero
+                ))
+
+                (* We need the negation of the constant, as it is moved to the
+                 * left-hand side of the equation. *)
+                @ [Number.(~/ (Expression.const expr))]) in
 
         (* Adjoint the cost function row *)
         let tableau = constraints @ [
-            expr_to_dense_list opt_problem.max_objective @ [Number.zero]
+            (expr_to_dense_list opt_problem.max_objective)
+
+            (* Zeros below the identity matrix. *)
+            @ (List.init no_constraints ~f:(fun _ -> Number.zero))
+            @ [Number.zero]
         ]  in
 
+        (* Tableau without the identity sub-matrix *)
         let tableau_matrix = Array.of_list_map tableau ~f:(
             fun row -> Array.of_list row) in
+        Log.debugf "Tableau after conversion = \n%s"
+            (Matrix.to_string tableau_matrix);
 
         let basis = Array.init
             no_constraints ~f:(fun row_no -> row_no + no_variables) in
@@ -183,30 +142,48 @@ struct
             : feasible_solution_t  =
 
         let module S = SimplexSolver in
+        Log.debugf "pivoted tableau = \n%s\nbasis=\n%s"
+            S.(Matrix.to_string tableau_solution.tableau)
+            (Sexp.to_string (sexp_of_array sexp_of_int
+                S.(tableau_solution.basis)));
         let tableau = S.(tableau_solution.tableau) in
         let basis = S.(tableau_solution.basis) in
         let no_constraints = Array.length basis in
+        let no_vars = List.length vars in
 
         let constants_v = S.constants tableau in
         let cost_row_v = S.cost_row tableau in
 
-        let basis_idx test_var_idx = Array.find basis
-            ~f:(fun var_idx -> (var_idx = test_var_idx)) in
+        (* Get the row for which the [test_var_idx] is the basic variable,
+         * or [None]. *)
+        let get_basis_idx test_var_idx = Array.findi basis
+            ~f:(fun _ var_idx -> (var_idx = test_var_idx)) in
 
         let primal_var_assignment = List.mapi vars ~f:(fun var_idx var ->
-            match basis_idx var_idx with
+            match (get_basis_idx var_idx) with
 
                 (* Variables not in the basis become 0. *)
                 | None -> (var, Number.zero)
 
                 (* Otherwise take the corresponding value from the constants
                  * row. *)
-                | Some idx -> (var, constants_v.(idx))
+                | Some (constraint_idx, _) -> (
+                    var,
+                    constants_v.(constraint_idx)
+                )
         ) in
         (* Dual var assignment: negative values of the cost row associated with
          * the auxiliary variables. *)
-        let dual_row = Vector.(~~ (cost_row_v <|> (no_constraints, 0))) in
-        let dual_var_assignment = 
+        Log.debugf "no_constraints = %d, cost_row = %s"
+            no_constraints
+            (Vector.to_string cost_row_v);
+        let dual_row = Vector.(~~ (cost_row_v <|> (no_vars, 0))) in
+        Log.debugf "Constraints = \n%s"
+            (String.concat ~sep:"\n"
+                (List.map ~f:Expression.to_string lte_constraints));
+        Log.debugf "Dual Row = \n%s"
+            (Vector.to_string dual_row);
+        let dual_var_assignment =
             List.map2_exn
                 lte_constraints
                 (Array.to_list dual_row)

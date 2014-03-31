@@ -30,14 +30,14 @@ let tests = "opt_solver" >::: [
             | Solution f -> f
             | _ -> failwith "The system should be solved" in
 
-        assert_equal 8.5 feasible_solution.value
+        assert_equal (-8.5) feasible_solution.value
             ~printer: Float_number.to_string
             ~msg: "Checking the solution value";
         assert_equal
             [("x1", 0.0); ("x2", 4.0); ("x3", 0.5)]
             feasible_solution.primal_var_assignment
-            ~msg: "Primal variable assignment should work"
-            ~printer: (fun s -> string_of_sexp (sexp_of_var_map_t s))
+            ~msg: "Checking the primal variable assignment"
+            ~printer: (fun s -> Sexp.to_string (sexp_of_var_map_t s))
             (* Comparison which ignores the ordering *)
             ~cmp: (fun a b -> (Map.Poly.equal Float.equal
                     (Map.Poly.of_alist_exn a) (Map.Poly.of_alist_exn b))

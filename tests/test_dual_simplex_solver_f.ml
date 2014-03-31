@@ -6,7 +6,7 @@ module IntVector = Vector_f.Make(Int_number)
 
 open Simplex
 
-let solution_type_to_str a = string_of_sexp (sexp_of_solution_type_t a)
+let solution_type_to_str a = Sexp.to_string (sexp_of_solution_type_t a)
 
 let tests = "dual_simplex" >::: [
     "bounded" >:: (fun _ ->
@@ -48,7 +48,7 @@ let tests = "dual_simplex" >::: [
             [|1.0; 1.0; -1.0; 0.0; 0.0; 1.0; 2.0|];
             [|-4.0; -2.0; -1.0; 0.0; 0.0; 0.0; 0.0|];
         |] in
-        let solution_type, pivoted_tableau = 
+        let solution_type, _ = 
             dual_simplex {tableau=tableau; basis=[|3; 4; 5|]} in
         assert_equal Unfeasible solution_type
             ~printer:solution_type_to_str

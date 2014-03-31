@@ -2,9 +2,6 @@ open Core.Std
 open OUnit2
 open Chem_parser
 
-(* Constructor helper *)
-let a atom coeff = (Atom atom, Coeff coeff)
-
 let tests = "chem_formula_parser" >::: [
     "test_parsing" >:: (fun _ ->
         let input_str = "H2SO4 + Ca -> CaSO2 + H2 + O2" in
@@ -14,13 +11,13 @@ let tests = "chem_formula_parser" >::: [
 
         let expected_tree = {
             lhs = [
-                [(a "H" 2); (a "S" 1); (a "O" 4)];
-                [(a "Ca" 1);]
+                [("H", 2); ("S", 1); ("O", 4)];
+                [("Ca", 1);]
             ];
             rhs = [
-                [(a "Ca" 1); (a "S" 1); (a "O" 2)];
-                [(a "H" 2)];
-                [(a "O" 2)];
+                [("Ca", 1); ("S", 1); ("O", 2)];
+                [("H", 2)];
+                [("O", 2)];
             ];
         } in
         assert_equal expected_tree equation
@@ -35,22 +32,22 @@ let tests = "chem_formula_parser" >::: [
         let open Coeff_equation in
         let input_eqn = {
             lhs = [
-                [(a "S" 1);];
-                [(a "H" 2); (a "S" 1); (a "O" 4)];
+                [("S", 1);];
+                [("H", 2); ("S", 1); ("O", 4)];
             ];
             rhs = [
-                [(a "S" 1); (a "O" 2)];
-                [(a "H" 2); (a "O" 1)];
+                [("S", 1); ("O", 2)];
+                [("H", 2); ("O", 1)];
             ];
         } in
         let expected_eqn_with_coeff = {
             lhs_c = [
-                (1, [(a "S" 1);]);
-                (1, [(a "H" 2); (a "S" 1); (a "O" 4)]);
+                (1, [("S", 1);]);
+                (2, [("H", 2); ("S", 1); ("O", 4)]);
             ];
             rhs_c = [
-                (3, [(a "S" 1); (a "O" 2)]);
-                (2, [(a "H" 2); (a "O" 1)]);
+                (3, [("S", 1); ("O", 2)]);
+                (2, [("H", 2); ("O", 1)]);
             ];
         } in
         assert_equal expected_eqn_with_coeff (Converter.add_coeffs input_eqn)

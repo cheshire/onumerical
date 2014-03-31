@@ -13,6 +13,8 @@ module S : (module type of Number_intf with type t = float) = struct
 
     let (~/) = Float.neg
 
+    let abs = Float.abs
+
     let compare = Float.compare
     let (<=/) = Float.(<=)
     let (>=/) = Float.(>=)
@@ -23,9 +25,6 @@ module S : (module type of Number_intf with type t = float) = struct
     let max = Float.max
 
     let to_string = Float.to_string
-
-    (* TODO: better implementation *)
-    let to_string_with_padding s ~no_chars = Float.to_string s
 end
 
 include S

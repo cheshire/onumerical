@@ -9,8 +9,8 @@ open Core.Std
 type t = {lhs: formula_t; rhs: formula_t}
 and formula_t = molecule_t list
 and molecule_t = (atom_t  * coeff_t) list
-and coeff_t = Coeff of int
-and atom_t = Atom of string with sexp
+and coeff_t = int
+and atom_t = string with sexp
 
 (** Submodule for the equation with coefficients attached to molecules *)
 module Coeff_equation : sig

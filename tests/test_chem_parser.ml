@@ -50,9 +50,11 @@ let tests = "chem_formula_parser" >::: [
                 (2, [("H", 2); ("O", 1)]);
             ];
         } in
-        assert_equal expected_eqn_with_coeff (Converter.add_coeffs input_eqn)
-            ~printer:Coeff_equation.to_string
-            ~msg:"Coefficients should be added correctly";
-        ()
+        match Converter.add_coeffs input_eqn with
+            | Converter.Unsolvable -> assert_failure "Solution should be found"
+            | Converter.OutputSolution solution ->
+                assert_equal expected_eqn_with_coeff solution
+                    ~printer:Coeff_equation.to_string
+                    ~msg:"Coefficients should be added correctly"
     );
 ]

@@ -33,5 +33,6 @@ module Converter : sig
     *  programming problem, call the dual simplex method, obtain the results and
     *  convert the results back to the coefficients!
     * NOTE: main entry point! *)
-    val add_coeffs : t -> Coeff_equation.coeff_t
+    type output_t = OutputSolution of Coeff_equation.coeff_t | Unsolvable
+    val add_coeffs : t -> output_t
 end

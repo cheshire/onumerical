@@ -80,6 +80,7 @@ module Converter = struct
     module Number = Rational_number
     module Opt = Opt_solver_f.Make(Molecule_var)(Number)
     module Expression = Opt.Expression
+    type output_t = OutputSolution of Coeff_equation.coeff_t | Unsolvable
 
     let merge_unit_maps = Map.Poly.merge ~f:(fun ~key:_ _ -> Some ())
 
@@ -180,7 +181,7 @@ module Converter = struct
     let solution_to_coefficients
             (equation:t)
             (solution:Opt.opt_solution_t)
-            : Coeff_equation.coeff_t =
+            : output_t =
         let open Opt in
         match solution with
             | Opt.Solution feasible_solution ->
@@ -194,18 +195,16 @@ module Converter = struct
                     List.map formula ~f:(fun molecule ->
                         (Map.Poly.find_exn var_map molecule, molecule)
                     ) in
-                Coeff_equation.(
+                OutputSolution Coeff_equation.(
                     {
                         lhs_c=formula_coeff_adder equation.lhs;
                         rhs_c=formula_coeff_adder equation.rhs;
                     }
                 )
             | Opt.Unbounded -> failwith
-                "The problem should be solvable, got unbounded"
-            | Opt.Unfeasible -> failwith
-                "The problem should be solvable, got unfeasible instead"
-
-    let add_coeffs (equation:t) : Coeff_equation.coeff_t =
+                "Unexpected unbounded: should never arise from the equation"
+            | Opt.Unfeasible -> Unsolvable
+    let add_coeffs (equation:t) : output_t =
         let opt_problem = to_opt_problem equation in
         solution_to_coefficients equation (Opt.solve opt_problem)
 end

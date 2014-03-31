@@ -10,7 +10,11 @@ let read_and_print () =
     match of_string input with
         | None -> print_endline ""
         | Some eqn ->
-            print_endline (Coeff_equation.to_string (Converter.add_coeffs eqn))
+            match Converter.add_coeffs eqn with
+                | Converter.Unsolvable -> print_endline
+                    "The equation is unsatisfiable"
+                | Converter.OutputSolution coeffs ->
+                    print_endline (Coeff_equation.to_string coeffs)
 
 (** Keep reading the input and converting it *)
 let rec loop () =

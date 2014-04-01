@@ -11,3 +11,6 @@ test:
 
 run_test: test
 	./test_runner.byte
+
+doc:
+	corebuild doc.docdir/index.html

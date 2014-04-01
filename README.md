@@ -9,43 +9,45 @@ OCaml library featuring:
     numbers and strings for variables are supported out-of-the-box):
 
     <pre>
-        # module Expression = Expression_f.Make(Str_var)(Float_number);;
-        # let a = Expression.of_assoc_list_and_const
+        module Expression = Expression_f.Make(Str_var)(Float_number);;
+        let a = Expression.of_assoc_list_and_const
             [("x", 1.0), ("y", 1.0)] 0.0;;
-        # let b = Expression.of_assoc_list_and_const
+        let b = Expression.of_assoc_list_and_const
             [("x", -1.0), ("z", 3.0)] 5.0;;
-        # Expression.(to_string (a ++ b));;
-        1 (y) + 3 (z) + 5
+        Expression.(to_string (a ++ b));;
+        (* Output: 1 (y) + 3 (z) + 5 *)
     </pre>
 
  * Generic vectors, represented using arrays:
 
     <pre>
-        # module Vector = Vector_f.Make(Float_number);;
-        # let a = [| 0.0; 3.0; 4.0 |];;
-        # let b = [| 2.0; 8.0; 2.0 |];;
-        # Vector.(to_string (a -- b));;
-        [-2.0    -5.0    2.0]
+        module Vector = Vector_f.Make(Float_number);;
+        let a = [| 0.0; 3.0; 4.0 |];;
+        let b = [| 2.0; 8.0; 2.0 |];;
+        Vector.(to_string (a -- b));;
+        (* Output: [-2.0    -5.0    2.0] *)
     </pre>
 
  * Generic matrixes represented using arrays:
 
     <pre>
-        # module Matrix = Matrix_f.Make(Float_number);;
-        # let a = [|
+        module Matrix = Matrix_f.Make(Float_number);;
+        let a = [|
             [|2.0; 3.0; 4.0|];
             [|1.0; 9.0; 1.0|];
             [|0.5; -1.0; 0.0|];
         |];;
-        # let b = [|
+         let b = [|
             [|2.0; 3.0; 4.0|];
             [|3.0; 6.0; 3.0|];
             [|0.5; -1.0; 3.0|];
         |];;
-        # Matrix.(to_string (a *** b))
+        Matrix.(to_string (a *** b))
+        (* Output:
         | 15.0    20.0    29.0|
         | 29.5    56.0    34.0|
         |-2.0     -4.5     1.0|
+        *)
     </pre>
 
  * Dual Simplex Solver on expressions:
@@ -53,14 +55,14 @@ OCaml library featuring:
     Solves linear optimization problems which are dual-feasible.
 
     <pre>
-        # module Solver = Opt_solver_f.Make(Str_var)(Float_number)
-        # module Expression = Solver.Expression
-        # let constraints = [
+        module Solver = Opt_solver_f.Make(Str_var)(Float_number)
+        module Expression = Solver.Expression
+        let constraints = [
             ([("x1", -1.0); ("x2", -1.0); ("x3", 2.0)], 3.0);
             ([("x1", -4.0); ("x2", -2.0); ("x3", 1.0)], 4.0);
             ([("x1", 1.0); ("x2", 1.0); ("x3", -4.0)], -2.0);
         ];;
-        # let opt_problem = Solver.of_constraints_and_objective
+        let opt_problem = Solver.of_constraints_and_objective
             (List.map constraints ~f:(fun (coeffs, const) -> (
                 Opt.LessThanZero,
                     (Expression.of_assoc_list_and_const coeffs const)
@@ -70,9 +72,9 @@ OCaml library featuring:
                     [("x1", -4.0); ("x2", -2.0); ("x3", -1.0)]
                     0.0
             );;
-        # let Opt.Solution solution = Opt.solve opt_problem;;
-        # solution.primal_var_assignment
-        [("x1", 0.0); ("x2", 4.0, "x3", 0.5)]
+        let Opt.Solution solution = Opt.solve opt_problem;;
+        solution.primal_var_assignment
+        (* output: [("x1", 0.0); ("x2", 4.0, "x3", 0.5)] *)
     </pre>
 
 ### Sample Application: Balancing Chemical Equations

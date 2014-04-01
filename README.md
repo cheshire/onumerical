@@ -110,6 +110,14 @@ Compiling:
 
     $ make
 
+Installation:
+
+    $ make install
+
+To remove:
+
+    $ make remove
+
 Running tests:
 
     $ make run_test

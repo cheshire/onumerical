@@ -1,16 +1,36 @@
-.PHONY : run_test
+.PHONY : run_test install remove clean doc
+
+COMPILER := ocamlbuild -use-ocamlfind -syntax camlp4o -pkg core -pkg sexplib.syntax,comparelib.syntax -tag thread
+FLAGS := -pkg dolog -pkg zarith -j 4
+BUILD := _build/src/
+INTERFACES := expression_f.cmi vector_f.cmi matrix_f.cmi dual_simplex_solver_f.cmi float_number.cmi int_number.cmi opt_solver_f.cmi str_var.cmi rational_number.cmi number_intf.cmi var_intf.cmi
 
 all:
-	corebuild -pkg re2 -pkg dolog -pkg zarith -j 4 opt_solver_f.cma
+	echo "Compiling native"
+	$(COMPILER) $(FLAGS) onumerical.cmxa
+	echo "Compiling bytecode"
+	$(COMPILER) $(FLAGS) onumerical.cma
 
 chem_balancer:
-	corebuild -pkg re2 -pkg dolog -pkg zarith -j 4 chem_balancer.native
+	$(COMPILER) -pkg re2 $(FLAGS) chem_balancer.native
 
 test:
-	corebuild -pkg re2 -pkg oUnit -pkg dolog -pkg zarith -j 4 test_runner.byte
+	$(COMPILER) -pkg oUnit $(FLAGS) test_runner.byte
+
+test.native:
+	$(COMPILER) -pkg oUnit $(FLAGS) test_runner.native
 
 run_test: test
 	./test_runner.byte
 
 doc:
-	corebuild doc.docdir/index.html
+	$(COMPILER) doc.docdir/index.html
+
+install:
+	ocamlfind install onumerical META $(addprefix $(BUILD), onumerical.cmxa onumerical.cma) $(addprefix $(BUILD), $(INTERFACES))
+
+remove:
+	ocamlfind remove onumerical
+
+clean:
+	rm -rf _build

@@ -1,0 +1,5 @@
+description = "Numerical Library for OCaml"
+requires = "core dolog zarith oUnit"
+version = "0.1"
+archive(byte) = "onumerical.cma"
+archive(native) = "onumerical.cmxa"

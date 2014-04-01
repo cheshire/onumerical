@@ -64,6 +64,9 @@ struct
                     true) in
         {coeffs=Map.Poly.of_alist_exn alist; constant=const}
 
+    let to_assoc_list_and_const expr = (
+            Map.Poly.to_alist expr.coeffs, expr.constant)
+
     let coeff (expr:t) (var:Var.t) : Number.t =
         match (Map.Poly.find expr.coeffs var) with
             | Some c -> c

@@ -38,6 +38,9 @@ sig
      * constant, provided as a separate argument *)
     val of_assoc_list_and_const : (Var.t * Number.t) list -> Number.t -> t
 
+    (** Serialize the expression back to the associative list *)
+    val to_assoc_list_and_const : t -> ((Var.t * Number.t) list * Number.t)
+
     (** Deconstructing expressions *)
     (** Coefficient associated with the given variable in a given expression *)
     val coeff : t -> Var.t -> Number.t

@@ -8,4 +8,7 @@ let () =
         Test_chem_parser.tests;
         Test_dual_simplex_solver_f.tests;
         Test_opt_solver_f.tests;
+        Test_expression_f.tests;
+        Test_vector_f.tests;
+        Test_matrix_f.tests;
     ])

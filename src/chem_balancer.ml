@@ -16,10 +16,5 @@ let read_and_print () =
                 | Converter.OutputSolution coeffs ->
                     print_endline (Coeff_equation.to_string coeffs)
 
-(** Keep reading the input and converting it *)
-let rec loop () =
-    let() = read_and_print () in
-    loop ()
-
 (** Run the main loop *)
-let () = loop ()
+let () = read_and_print ()

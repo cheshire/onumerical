@@ -9,13 +9,13 @@ module Make
 sig
 
     (** Coefficient map type *)
-    type coeffs_t = (Var.t, Number.t) Map.Poly.t with sexp
+    type coeffs_t = (Var.t, Number.t) Map.Poly.t with sexp, compare
 
     (** Expression type definition *)
     type t = {
         coeffs: coeffs_t;
-        constant: Number.t
-    } with sexp
+        constant: Number.t;
+    } with sexp, compare
 
     (** Arithmetics on multiple expressions *)
     val (++) : t -> t -> t

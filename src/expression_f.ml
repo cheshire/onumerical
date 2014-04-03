@@ -5,12 +5,12 @@ module Make
     (Number : module type of Number_intf)
     =
 struct
-    type coeffs_t = (Var.t, Number.t) Map.Poly.t with sexp
+    type coeffs_t = (Var.t, Number.t) Map.Poly.t with sexp, compare
 
     type t = {
         coeffs: coeffs_t;
         constant: Number.t
-    } with sexp
+    } with sexp, compare
 
     let _merge_expressions (expr1:t) (expr2:t) ~f ~f2 : t =
         {coeffs=Map.Poly.merge expr1.coeffs expr2.coeffs ~f:(

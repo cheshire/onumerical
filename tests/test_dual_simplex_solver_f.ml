@@ -2,7 +2,6 @@ open Core.Std
 open OUnit2
 
 module Simplex = Dual_simplex_solver_f.Make(Float_number)
-module IntVector = Vector_f.Make(Int_number)
 
 open Simplex
 
@@ -36,7 +35,7 @@ let tests = "dual_simplex" >::: [
             ~msg:"Checking that the dual simplex algorithm pivots as
             expected";
         assert_equal [|1; 4; 2|] pivoted_tableau.basis
-            ~printer:IntVector.to_string
+            ~printer:(fun x -> Sexp.to_string (sexp_of_array sexp_of_int x))
             ~msg:"Basis should be computed";
         ()
     );

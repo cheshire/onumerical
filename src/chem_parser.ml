@@ -5,7 +5,7 @@ type t = {lhs: formula_t; rhs: formula_t}
 and formula_t = molecule_t list
 and molecule_t = (atom_t * coeff_t) list
 and coeff_t = int
-and atom_t = string with sexp
+and atom_t = string with sexp, compare
 
 let of_string (input:string) : t option =
     let matches = Regex.(split (of_string (escape "->")) input) in
@@ -73,7 +73,7 @@ end
 
 module Converter = struct
     module Molecule_var = struct
-        type t = molecule_t with sexp
+        type t = molecule_t with sexp, compare
         let to_string = molecule_to_string
     end
 

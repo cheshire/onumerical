@@ -5,6 +5,7 @@ module S : (module type of Number_intf with type t = float) = struct
     let zero = 0.0
     let one = 1.0
     let of_int = Float.of_int
+    let infinity = Float.infinity
 
     let (+/) = (+.)
     let (-/) = (-.)

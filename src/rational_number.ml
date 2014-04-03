@@ -9,6 +9,7 @@ module S : (module type of Number_intf with type t = Q.t) = struct
 
     let zero = Q.zero
     let one = Q.one
+    let infinity = Q.inf
 
     let of_int = Q.of_int
 

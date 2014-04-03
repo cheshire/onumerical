@@ -1,10 +1,11 @@
 (** Number type: anything comparable which supports basic arithmetic *)
-type t with sexp
+type t with sexp, compare (* OK what does compare generate? *)
 
 (** Constructors *)
 val zero : t
 val one : t
 val of_int : int -> t
+val infinity : t
 
 (** Arithmetics *)
 val (+/) : t -> t -> t
